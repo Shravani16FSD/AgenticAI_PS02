@@ -1,18 +1,16 @@
 from sqlalchemy.orm import Session
 from datetime import datetime
-from .database import engine, Base, SessionLocal
+from .database import engine, Base, SessionLocal, migrate_database
 from .models import UserProfile, CareerPath, SavedCareer, RoadmapTask, UserSkill, ChatMessage
 
 def seed_database(db: Session):
-    # Ensure tables exist
-    Base.metadata.create_all(bind=engine)
+    # Ensure tables and migrations exist safely
+    migrate_database()
 
     # 1. Seed Career Paths
-    existing_career = db.query(CareerPath).first()
-    if not existing_career:
-        careers = [
-            CareerPath(
-                id="ai-product-engineer",
+    careers = [
+        CareerPath(
+            id="ai-product-engineer",
                 title="AI Product Engineer",
                 category="Engineering",
                 tagline="Bridging modern foundation models with production user interfaces and resilient client-server workflows.",
@@ -172,8 +170,10 @@ def seed_database(db: Session):
                 ]
             )
         ]
-        db.add_all(careers)
-        db.commit()
+    for c in careers:
+        if not db.query(CareerPath).filter(CareerPath.id == c.id).first():
+            db.add(c)
+    db.commit()
 
     # 2. Seed Default User Profile
     user = db.query(UserProfile).filter(UserProfile.id == "default_user").first()
@@ -192,114 +192,137 @@ def seed_database(db: Session):
         db.add(user)
         db.commit()
 
-        # Seed Saved Careers
-        db.add_all([
-            SavedCareer(id="sc-1", user_id="default_user", career_id="ai-product-engineer"),
-            SavedCareer(id="sc-2", user_id="default_user", career_id="product-designer")
-        ])
+    # 3. Seed Saved Careers (Idempotent)
+    starter_saved = [
+        SavedCareer(id="sc-1", user_id="default_user", career_id="ai-product-engineer"),
+        SavedCareer(id="sc-2", user_id="default_user", career_id="product-designer")
+    ]
+    for sc in starter_saved:
+        if not db.query(SavedCareer).filter(SavedCareer.user_id == sc.user_id, SavedCareer.career_id == sc.career_id).first():
+            db.add(sc)
+    db.commit()
 
-        # Seed Roadmap Tasks
-        starter_tasks = [
-            RoadmapTask(
-                id="task-1",
-                user_id="default_user",
-                phase_id=1,
-                phase_name="Phase 1: Foundations",
-                title="Master modern TypeScript fundamentals & strict type safety",
-                description="Understand union types, generics, type narrowing, and interface composition to prevent runtime bugs.",
-                skill="TypeScript",
-                estimated_time="4 hours",
-                status="completed",
-                resource_name="TypeScript Handbook",
-                resource_type="Documentation",
-                resource_url="https://www.typescriptlang.org/docs/handbook/intro.html",
-                completed_at=datetime.utcnow()
-            ),
-            RoadmapTask(
-                id="task-2",
-                user_id="default_user",
-                phase_id=1,
-                phase_name="Phase 1: Foundations",
-                title="Study asynchronous JavaScript & Server-Sent Events (SSE)",
-                description="Learn how streaming responses work from server to client with ReadableStream and fetch abort controllers.",
-                skill="Asynchronous Programming",
-                estimated_time="3 hours",
-                status="completed",
-                resource_name="MDN Web Docs: Streams API",
-                resource_type="Documentation",
-                resource_url="https://developer.mozilla.org/en-US/docs/Web/API/Streams_API",
-                completed_at=datetime.utcnow()
-            ),
-            RoadmapTask(
-                id="task-3",
-                user_id="default_user",
-                phase_id=2,
-                phase_name="Phase 2: Core Skills",
-                title="Implement structured schema validation with Pydantic & Zod",
-                description="Enforce deterministic schemas on model outputs to guarantee reliable UI rendering without runtime parsing errors.",
-                skill="Schema Validation",
-                estimated_time="25 mins",
-                status="in_progress",
-                resource_name="Zod TypeScript First Schema Validation",
-                resource_type="Documentation",
-                resource_url="https://zod.dev"
-            ),
-            RoadmapTask(
-                id="task-4",
-                user_id="default_user",
-                phase_id=2,
-                phase_name="Phase 2: Core Skills",
-                title="Build graceful UI fallback states for AI rate limits & network timeouts",
-                description="Design human-friendly error banners, retry mechanisms, and non-blocking background task indicators.",
-                skill="Resilient UX",
-                estimated_time="2 hours",
-                status="not_started",
-                resource_name="Designing for System Recovery & Error States",
-                resource_type="Interactive",
-                resource_url="https://www.nngroup.com/articles/error-message-guidelines/"
-            ),
-            RoadmapTask(
-                id="task-5",
-                user_id="default_user",
-                phase_id=3,
-                phase_name="Phase 3: Applied Projects",
-                title="Develop an end-to-end Career Research Companion with vector search",
-                description="Combine a clean editorial frontend with a semantic embedding index of job roles, skills, and open-access courses.",
-                skill="Full-Stack AI Application",
-                estimated_time="12 hours",
-                status="not_started",
-                resource_name="Project Specification & Architecture Guide",
-                resource_type="Project Spec",
-                resource_url="https://github.com"
-            )
-        ]
-        db.add_all(starter_tasks)
-
-        # Seed Skills
-        starter_skills = [
-            UserSkill(id="skill-ts", user_id="default_user", name="TypeScript & React", category="Frontend Engineering", status="practicing", hours_spent=28.0, target_hours=50.0, last_practiced="Today"),
-            UserSkill(id="skill-py", user_id="default_user", name="Python Fundamentals", category="Backend & Scripting", status="practicing", hours_spent=16.0, target_hours=40.0, last_practiced="Yesterday"),
-            UserSkill(id="skill-api", user_id="default_user", name="API Design & Streaming", category="System Architecture", status="learning", hours_spent=8.0, target_hours=30.0, last_practiced="3 days ago"),
-            UserSkill(id="skill-a11y", user_id="default_user", name="WCAG 2.2 Accessibility", category="Design & UX Standards", status="proficient", hours_spent=22.0, target_hours=25.0, last_practiced="4 days ago"),
-            UserSkill(id="skill-prompt", user_id="default_user", name="Context & Prompt Architecture", category="AI Systems", status="learning", hours_spent=10.0, target_hours=35.0, last_practiced="1 week ago")
-        ]
-        db.add_all(starter_skills)
-
-        # Seed Initial Chat Message
-        initial_msg = ChatMessage(
-            id="msg-welcome",
+    # 4. Seed Roadmap Tasks (Idempotent with career_id and deadline)
+    starter_tasks = [
+        RoadmapTask(
+            id="task-1",
             user_id="default_user",
-            sender="assistant",
-            text="Hello Alex. I am your career mentor.\n\nYour career is a journey, and you do not need to figure everything out today. Whether you want to reflect on what path fits your strengths, structure your weekly learning, or prepare for internship applications, I am here to work through it with you step-by-step.\n\nWhere would you like to start today?",
-            suggested_actions=[
-                "Help me choose a career direction.",
-                "What should I learn to become an AI engineer?",
-                "Can you help me prepare for an internship?",
-                "Let's make a realistic weekly learning plan."
-            ]
+            career_id="ai-product-engineer",
+            phase_id=1,
+            phase_name="Phase 1: Foundations",
+            title="Master modern TypeScript fundamentals & strict type safety",
+            description="Understand union types, generics, type narrowing, and interface composition to prevent runtime bugs.",
+            skill="TypeScript",
+            estimated_time="4 hours",
+            deadline="Completed",
+            status="completed",
+            resource_name="TypeScript Handbook",
+            resource_type="Documentation",
+            resource_url="https://www.typescriptlang.org/docs/handbook/intro.html",
+            completed_at=datetime.utcnow()
+        ),
+        RoadmapTask(
+            id="task-2",
+            user_id="default_user",
+            career_id="ai-product-engineer",
+            phase_id=1,
+            phase_name="Phase 1: Foundations",
+            title="Study asynchronous JavaScript & Server-Sent Events (SSE)",
+            description="Learn how streaming responses work from server to client with ReadableStream and fetch abort controllers.",
+            skill="Asynchronous Programming",
+            estimated_time="3 hours",
+            deadline="Completed",
+            status="completed",
+            resource_name="MDN Web Docs: Streams API",
+            resource_type="Documentation",
+            resource_url="https://developer.mozilla.org/en-US/docs/Web/API/Streams_API",
+            completed_at=datetime.utcnow()
+        ),
+        RoadmapTask(
+            id="task-3",
+            user_id="default_user",
+            career_id="ai-product-engineer",
+            phase_id=2,
+            phase_name="Phase 2: Core Skills",
+            title="Implement structured schema validation with Pydantic & Zod",
+            description="Enforce deterministic schemas on model outputs to guarantee reliable UI rendering without runtime parsing errors.",
+            skill="Schema Validation",
+            estimated_time="25 mins",
+            deadline="In 3 days",
+            status="in_progress",
+            resource_name="Zod TypeScript First Schema Validation",
+            resource_type="Documentation",
+            resource_url="https://zod.dev"
+        ),
+        RoadmapTask(
+            id="task-4",
+            user_id="default_user",
+            career_id="ai-product-engineer",
+            phase_id=2,
+            phase_name="Phase 2: Core Skills",
+            title="Build graceful UI fallback states for AI rate limits & network timeouts",
+            description="Design human-friendly error banners, retry mechanisms, and non-blocking background task indicators.",
+            skill="Resilient UX",
+            estimated_time="2 hours",
+            deadline="Next week",
+            status="not_started",
+            resource_name="Designing for System Recovery & Error States",
+            resource_type="Interactive",
+            resource_url="https://www.nngroup.com/articles/error-message-guidelines/"
+        ),
+        RoadmapTask(
+            id="task-5",
+            user_id="default_user",
+            career_id="ai-product-engineer",
+            phase_id=3,
+            phase_name="Phase 3: Applied Projects",
+            title="Develop an end-to-end Career Research Companion with vector search",
+            description="Combine a clean editorial frontend with a semantic embedding index of job roles, skills, and open-access courses.",
+            skill="Full-Stack AI Application",
+            estimated_time="12 hours",
+            deadline="End of month",
+            status="not_started",
+            resource_name="Project Specification & Architecture Guide",
+            resource_type="Project Spec",
+            resource_url="https://github.com"
         )
+    ]
+    for task in starter_tasks:
+        if not db.query(RoadmapTask).filter(RoadmapTask.id == task.id).first():
+            db.add(task)
+    db.commit()
+
+    # 5. Seed Skills (Idempotent with is_gap)
+    starter_skills = [
+        UserSkill(id="skill-ts", user_id="default_user", name="TypeScript & React", category="Frontend Engineering", status="practicing", hours_spent=28.0, target_hours=50.0, is_gap=False, last_practiced="Today"),
+        UserSkill(id="skill-py", user_id="default_user", name="Python Fundamentals", category="Backend & Scripting", status="practicing", hours_spent=16.0, target_hours=40.0, is_gap=False, last_practiced="Yesterday"),
+        UserSkill(id="skill-api", user_id="default_user", name="API Design & Streaming", category="System Architecture", status="learning", hours_spent=8.0, target_hours=30.0, is_gap=False, last_practiced="3 days ago"),
+        UserSkill(id="skill-a11y", user_id="default_user", name="WCAG 2.2 Accessibility", category="Design & UX Standards", status="proficient", hours_spent=22.0, target_hours=25.0, is_gap=False, last_practiced="4 days ago"),
+        UserSkill(id="skill-prompt", user_id="default_user", name="Context & Prompt Architecture", category="AI Systems", status="learning", hours_spent=10.0, target_hours=35.0, is_gap=False, last_practiced="1 week ago"),
+        UserSkill(id="skill-eval", user_id="default_user", name="Vector Embeddings & RAG", category="AI Systems", status="learning", hours_spent=0.0, target_hours=20.0, is_gap=True, last_practiced="Identified gap")
+    ]
+    for skill in starter_skills:
+        if not db.query(UserSkill).filter(UserSkill.id == skill.id).first():
+            db.add(skill)
+    db.commit()
+
+    # 6. Seed Initial Chat Message (Idempotent with session_id)
+    initial_msg = ChatMessage(
+        id="msg-welcome",
+        user_id="default_user",
+        session_id="default_session",
+        sender="assistant",
+        text="Hello Alex. I am your career mentor.\n\nYour career is a journey, and you do not need to figure everything out today. Whether you want to reflect on what path fits your strengths, structure your weekly learning, or prepare for internship applications, I am here to work through it with you step-by-step.\n\nWhere would you like to start today?",
+        suggested_actions=[
+            "Help me choose a career direction.",
+            "What should I learn to become an AI engineer?",
+            "Can you help me prepare for an internship?",
+            "Let's make a realistic weekly learning plan."
+        ]
+    )
+    if not db.query(ChatMessage).filter(ChatMessage.id == initial_msg.id).first():
         db.add(initial_msg)
-        db.commit()
+    db.commit()
 
 if __name__ == "__main__":
     db = SessionLocal()

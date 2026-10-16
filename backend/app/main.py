@@ -2,15 +2,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
-from .database import engine, Base, SessionLocal
+from .database import engine, Base, SessionLocal, migrate_database
 from .seed import seed_database
 from .schemas import HealthResponse
 from .routers import profile, careers, roadmap, skills, chat
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: ensure tables exist and seed initial catalog/user
-    Base.metadata.create_all(bind=engine)
+    # Startup: ensure tables and columns exist safely and seed initial catalog/user
+    migrate_database()
     db = SessionLocal()
     try:
         seed_database(db)

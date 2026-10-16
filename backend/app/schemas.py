@@ -74,12 +74,14 @@ class CareerPathResponse(BaseModel):
 
 # --- Roadmap Task Schemas ---
 class RoadmapTaskBase(BaseModel):
+    career_id: Optional[str] = None
     phase_id: int = Field(..., ge=1, le=5)
     phase_name: str
     title: str = Field(..., min_length=1, max_length=255)
     description: str
     skill: str
     estimated_time: str
+    deadline: Optional[str] = None
     status: str = Field(default="not_started")
     resource_name: Optional[str] = None
     resource_type: Optional[str] = None
@@ -90,11 +92,13 @@ class RoadmapTaskCreate(RoadmapTaskBase):
     pass
 
 class RoadmapTaskUpdate(BaseModel):
+    career_id: Optional[str] = None
     status: Optional[str] = None
     title: Optional[str] = None
     description: Optional[str] = None
     skill: Optional[str] = None
     estimated_time: Optional[str] = None
+    deadline: Optional[str] = None
     resource_name: Optional[str] = None
     resource_url: Optional[str] = None
     notes: Optional[str] = None
@@ -116,6 +120,7 @@ class UserSkillBase(BaseModel):
     status: str = Field(default="learning")
     hours_spent: float = Field(default=0.0, ge=0.0)
     target_hours: float = Field(default=30.0, gt=0.0)
+    is_gap: bool = Field(default=False)
     last_practiced: str = Field(default="Recently")
 
 class UserSkillCreate(UserSkillBase):
@@ -136,6 +141,7 @@ class UserSkillResponse(UserSkillBase):
 # --- Chat & AI Schemas ---
 class ChatMessageResponse(BaseModel):
     id: str
+    session_id: str = "default_session"
     sender: str
     text: str
     status: str
@@ -147,4 +153,10 @@ class ChatMessageResponse(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1)
+    session_id: Optional[str] = "default_session"
     history: Optional[List[Dict[str, str]]] = Field(default_factory=list)
+
+    class Config:
+        extra = "ignore"
+
+
