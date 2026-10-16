@@ -1,0 +1,78 @@
+:root {
+  /* Core palette */
+  --color-page: #F8F4ED;
+  --color-surface: #FFFDFA;
+  --color-surface-muted: #F0E8DE;
+  --color-burgundy: #702D3D;
+  --color-burgundy-hover: #57202F;
+  --color-burgundy-soft: #EDE0E2;
+  --color-text: #292321;
+  --color-text-secondary: #625853;
+  --color-text-muted: #766A64;
+  --color-border: #DCD1C6;
+  --color-border-strong: #BDAEA2;
+  --color-success: #286247;
+  --color-success-bg: #E5F0E8;
+  --color-warning: #805400;
+  --color-warning-bg: #F8EED7;
+  --color-error: #A52C32;
+  --color-error-bg: #F8E6E4;
+  --color-focus: #702D3D;
+
+  /* Semantic token mapping */
+  --background: var(--color-page);
+  --foreground: var(--color-text);
+  --card: var(--color-surface);
+  --primary: var(--color-burgundy);
+  --primary-hover: var(--color-burgundy-hover);
+  --muted: var(--color-surface-muted);
+  --muted-foreground: var(--color-text-secondary);
+  --border: var(--color-border);
+  --ring: var(--color-focus);
+
+  /* Typography */
+  --font-body: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Playfair Display", Georgia, "Times New Roman", serif;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+
+  --heading-xl: clamp(2.25rem, 4.5vw, 3.5rem);
+  --heading-lg: clamp(1.875rem, 3vw, 2.5rem);
+  --heading-md: clamp(1.5rem, 2.2vw, 1.875rem);
+
+  /* Spacing */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+
+  /* Shapes & Radii */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-panel: 12px;
+
+  /* Dimensions */
+  --content-max: 1200px;
+  --sidebar-width: 248px;
+  --header-height: 68px;
+
+  /* Shadows (minimal, editorial) */
+  --shadow-subtle: 0 1px 2px rgba(41, 35, 33, 0.04);
+  --shadow-dropdown: 0 6px 20px -3px rgba(41, 35, 33, 0.09), 0 2px 6px -1px rgba(41, 35, 33, 0.04);
+  --shadow-modal: 0 16px 36px -6px rgba(41, 35, 33, 0.16), 0 4px 12px -2px rgba(41, 35, 33, 0.08);
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 200ms ease;
+}
