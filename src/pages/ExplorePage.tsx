@@ -18,14 +18,17 @@ import {
   Target,
   Compass
 } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageContainer, PageHeading } from '../components/ui/Typography';
 import { TextInput } from '../components/ui/Inputs';
 import { PrimaryButton, SecondaryButton } from '../components/ui/Buttons';
 import { CareerSummary } from '../components/career/CareerSummary';
 import { EmptyState } from '../components/ui/FeedbackStates';
+import { EvidenceSkillReportView } from '../components/EvidenceSkillReportView';
 import { useApp } from '../context/AppContext';
 import { apiClient } from '../services/apiClient';
 import type { CareerPath } from '../types';
+import type { EvidenceReportData } from '../types/arena';
 
 export interface PortalJobListing {
   id: string;
@@ -252,6 +255,7 @@ export interface RepoSkillEvidenceItem {
 export interface UserRepoProfile {
   repo: {
     name: string;
+    url?: string;
     commitSha: string;
     lastScanned: string;
     filesCount: number;
@@ -1024,25 +1028,96 @@ export function getRepoProfileForUser(userId: string, profile: any): UserRepoPro
 
 export const ExplorePage: React.FC = () => {
   const { careerPaths, savedCareerIds, toggleSaveCareer, updateProfile, profile, skills, activeUserId } = useApp();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<'tracks' | 'portal' | 'profile' | 'compare' | 'tracker'>('portal');
+  const tabParam = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<'tracks' | 'portal' | 'profile' | 'compare' | 'tracker'>(() => {
+    if (tabParam && ['tracks', 'portal', 'profile', 'compare', 'tracker'].includes(tabParam)) {
+      return tabParam as any;
+    }
+    return 'portal';
+  });
+
+  useEffect(() => {
+    const currentTab = searchParams.get('tab');
+    if (currentTab && ['tracks', 'portal', 'profile', 'compare', 'tracker'].includes(currentTab)) {
+      setActiveTab(currentTab as any);
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (tab: 'tracks' | 'portal' | 'profile' | 'compare' | 'tracker') => {
+    setActiveTab(tab);
+    setSearchParams({ tab });
+  };
   
   const initialProfileData = useMemo(() => {
     return getRepoProfileForUser(activeUserId, profile);
   }, [activeUserId, profile]);
 
   const [repoState, setRepoState] = useState(initialProfileData.repo);
-  const [activeSkillsCatalog, setActiveSkillsCatalog] = useState<RepoSkillEvidenceItem[]>(initialProfileData.skillsCatalog);
   const [activeCitations, setActiveCitations] = useState<CodeEvidenceCitation[]>(initialProfileData.citations);
-  const [isReanalysing, setIsReanalysing] = useState(false);
-  const [reanalyseSuccess, setReanalyseSuccess] = useState<string | null>(null);
-  const [profileCategoryFilter, setProfileCategoryFilter] = useState<string>('All');
+
+  // Evidence-Based Skill Mapping Engine Report State (Phase 9 & 10)
+  const [evidenceReport, setEvidenceReport] = useState<EvidenceReportData | null>(null);
+  const [isLoadingEvidence, setIsLoadingEvidence] = useState<boolean>(false);
+  const [evidenceError, setEvidenceError] = useState<string | null>(null);
+
+  const loadEvidenceReport = useCallback(async (customRepoUrl?: string) => {
+    setIsLoadingEvidence(true);
+    setEvidenceError(null);
+    try {
+      const targetUrl = customRepoUrl || repoState.url || `https://github.com/${repoState.name}`;
+      const data = await apiClient.getEvidenceSkillReport(activeUserId, targetUrl);
+      if (data) {
+        setEvidenceReport(data);
+        if (data.repository_name) {
+          setRepoState(prev => ({
+            ...prev,
+            name: data.repository_name,
+            url: data.repo_url || prev.url
+          }));
+        }
+      }
+    } catch (err: any) {
+      setEvidenceError('Failed to fetch evidence-based skill mapping report.');
+    } finally {
+      setIsLoadingEvidence(false);
+    }
+  }, [activeUserId, repoState.url, repoState.name]);
+
+  const handleAnalyzeRepo = async (repoUrl: string) => {
+    setIsLoadingEvidence(true);
+    setEvidenceError(null);
+    try {
+      const data = await apiClient.analyzeCustomRepository(repoUrl, activeUserId);
+      if (data) {
+        setEvidenceReport(data);
+        if (data.repository_name) {
+          setRepoState(prev => ({
+            ...prev,
+            name: data.repository_name,
+            url: data.repo_url || repoUrl
+          }));
+        }
+      }
+    } catch (err: any) {
+      setEvidenceError('Analysis of repository failed. Please verify the GitHub URL.');
+    } finally {
+      setIsLoadingEvidence(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'profile') {
+      loadEvidenceReport();
+    }
+  }, [activeTab, loadEvidenceReport]);
 
   // Reactively synchronize repository skill profile as active user changes in sign in section
   useEffect(() => {
     const userProfile = getRepoProfileForUser(activeUserId, profile);
     setRepoState(userProfile.repo);
-    setActiveSkillsCatalog(userProfile.skillsCatalog);
     setActiveCitations(userProfile.citations);
     if (profile.name) {
       setApplicantName(profile.name);
@@ -1070,45 +1145,6 @@ export const ExplorePage: React.FC = () => {
       isMounted = false;
     };
   }, [activeUserId, profile]);
-
-  // Trigger continuous reassessment
-  const handleReanalyseRepo = async () => {
-    setIsReanalysing(true);
-    setReanalyseSuccess(null);
-    try {
-      const data = await apiClient.reanalyseRepository(activeUserId);
-      if (data && data.commit_sha) {
-        setRepoState(prev => ({
-          ...prev,
-          commitSha: data.commit_sha,
-          lastScanned: data.last_scanned_at ? new Date(data.last_scanned_at).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC'
-        }));
-        setReanalyseSuccess(`Reanalysis complete for commit ${data.commit_sha}. All evidence citations refreshed.`);
-      } else {
-        // Fallback local reassessment simulation
-        await new Promise(r => setTimeout(r, 600));
-        const newSha = `c${Math.random().toString(16).slice(2, 11)}`;
-        setRepoState(prev => ({
-          ...prev,
-          commitSha: newSha,
-          lastScanned: new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC'
-        }));
-        setReanalyseSuccess(`Reanalysis complete for commit ${newSha}. Evidence tree refreshed.`);
-      }
-    } catch {
-      await new Promise(r => setTimeout(r, 600));
-      const newSha = `c${Math.random().toString(16).slice(2, 11)}`;
-      setRepoState(prev => ({
-        ...prev,
-        commitSha: newSha,
-        lastScanned: new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC'
-      }));
-      setReanalyseSuccess(`Reanalysis complete for commit ${newSha}. Evidence tree refreshed.`);
-    } finally {
-      setIsReanalysing(false);
-      setTimeout(() => setReanalyseSuccess(null), 5000);
-    }
-  };
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedCareerForModal, setSelectedCareerForModal] = useState<CareerPath | null>(null);
@@ -1552,7 +1588,7 @@ export const ExplorePage: React.FC = () => {
         }}
       >
         <button
-          onClick={() => setActiveTab('portal')}
+          onClick={() => handleTabChange('portal')}
           style={{
             padding: '0.5rem 1rem',
             borderRadius: 'var(--radius-sm)',
@@ -1585,7 +1621,7 @@ export const ExplorePage: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveTab('profile')}
+          onClick={() => handleTabChange('profile')}
           style={{
             padding: '0.5rem 1rem',
             borderRadius: 'var(--radius-sm)',
@@ -1619,7 +1655,7 @@ export const ExplorePage: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveTab('compare')}
+          onClick={() => handleTabChange('compare')}
           style={{
             padding: '0.5rem 1rem',
             borderRadius: 'var(--radius-sm)',
@@ -1640,7 +1676,7 @@ export const ExplorePage: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveTab('tracker')}
+          onClick={() => handleTabChange('tracker')}
           style={{
             padding: '0.5rem 1rem',
             borderRadius: 'var(--radius-sm)',
@@ -1661,7 +1697,7 @@ export const ExplorePage: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveTab('tracks')}
+          onClick={() => handleTabChange('tracks')}
           style={{
             padding: '0.5rem 1rem',
             borderRadius: 'var(--radius-sm)',
@@ -2452,311 +2488,18 @@ export const ExplorePage: React.FC = () => {
 
       {/* Applications Tracker Tab View (Phase 9) */}
       
-      {/* Tab: Repository Skill Profile (Phase 9 & 10) */}
+      {/* Tab: Repository Skill Profile & Evidence Gaps */}
       {activeTab === 'profile' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-          {/* Active Repository Provenance Header */}
-          <div
-            style={{
-              padding: 'var(--space-6)',
-              backgroundColor: 'var(--color-surface)',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--color-border)',
-              boxShadow: 'var(--shadow-sm)'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                  <GitBranch size={18} color="var(--color-burgundy)" />
-                  <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 700, margin: 0 }}>
-                    {repoState.name}
-                  </h3>
-                  <span className="badge badge-burgundy" style={{ fontSize: '0.75rem' }}>
-                    Authorized Public Repository
-                  </span>
-                </div>
-                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)', marginTop: '6px' }}>
-                  <span>
-                    Commit SHA: <code style={{ backgroundColor: 'var(--color-background)', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>{repoState.commitSha}</code>
-                  </span>
-                  <span>
-                    Files Inspected: <strong>{repoState.filesCount} source files</strong> (.py, .sql, .js, .ts, .yml)
-                  </span>
-                  <span>
-                    Last Reassessed: <strong>{repoState.lastScanned}</strong>
-                  </span>
-                  <span>
-                    Analysis: <strong>Deterministic AST + Calibrated ML Model</strong>
-                  </span>
-                </div>
-              </div>
-
-              <button
-                onClick={handleReanalyseRepo}
-                disabled={isReanalysing}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '0.5rem 1rem',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'var(--color-burgundy)',
-                  color: '#FFFFFF',
-                  fontWeight: 600,
-                  fontSize: 'var(--text-xs)',
-                  border: 'none',
-                  cursor: isReanalysing ? 'not-allowed' : 'pointer',
-                  opacity: isReanalysing ? 0.7 : 1,
-                  boxShadow: '0 2px 4px rgba(112,45,61,0.2)'
-                }}
-              >
-                <RefreshCw size={14} className={isReanalysing ? 'spin' : ''} style={{ animation: isReanalysing ? 'spin 1s linear infinite' : 'none' }} />
-                <span>{isReanalysing ? 'Reanalysing AST Trees...' : 'Reanalyse Repository'}</span>
-              </button>
-            </div>
-
-            {reanalyseSuccess && (
-              <div
-                style={{
-                  marginTop: 'var(--space-4)',
-                  padding: 'var(--space-3) var(--space-4)',
-                  backgroundColor: '#ECFDF5',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid #10B981',
-                  color: '#065F46',
-                  fontSize: 'var(--text-xs)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-              >
-                <CheckCircle2 size={15} color="#10B981" />
-                <span>{reanalyseSuccess}</span>
-              </div>
-            )}
-          </div>
-
-          {/* KPI Summary Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-4)' }}>
-            <div style={{ padding: 'var(--space-4)', backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
-              <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
-                Strong Evidence Skills
-              </div>
-              <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 800, color: 'var(--color-burgundy)', marginTop: '4px' }}>
-                {activeSkillsCatalog.filter(i => i.strength >= 70).length} Skills
-              </div>
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
-                Score &ge; 70 (Multiple implementations + tests)
-              </div>
-            </div>
-
-            <div style={{ padding: 'var(--space-4)', backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
-              <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
-                Moderate & Limited Evidence
-              </div>
-              <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 800, color: '#D97706', marginTop: '4px' }}>
-                {activeSkillsCatalog.filter(i => i.strength >= 15 && i.strength < 70).length} Skills
-              </div>
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
-                Score 15-69 (Active implementation or imports)
-              </div>
-            </div>
-
-            <div style={{ padding: 'var(--space-4)', backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
-              <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
-                Not In Scanned Scope
-              </div>
-              <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 800, color: 'var(--color-text-secondary)', marginTop: '4px' }}>
-                {activeSkillsCatalog.filter(i => i.strength < 15).length} Skills
-              </div>
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginTop: '2px' }}>
-                Does not indicate lack of ability
-              </div>
-            </div>
-
-            <div style={{ padding: 'var(--space-4)', backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
-              <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
-                Verifiable Code Citations
-              </div>
-              <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 800, color: 'var(--color-burgundy)', marginTop: '4px' }}>
-                {activeCitations.length} Citations
-              </div>
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
-                Pinned to commit SHA and line range
-              </div>
-            </div>
-          </div>
-
-          {/* Domain Filter */}
-          <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--color-text)' }}>
-              Filter Domain:
-            </span>
-            {['All', ...Array.from(new Set(activeSkillsCatalog.map(d => d.category)))].map(d => (
-              <button
-                key={d}
-                onClick={() => setProfileCategoryFilter(d)}
-                style={{
-                  padding: '0.35rem 0.75rem',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: 'var(--text-xs)',
-                  fontWeight: profileCategoryFilter === d ? 700 : 500,
-                  backgroundColor: profileCategoryFilter === d ? 'var(--color-burgundy)' : 'var(--color-surface)',
-                  color: profileCategoryFilter === d ? '#FFFFFF' : 'var(--color-text)',
-                  border: `1px solid ${profileCategoryFilter === d ? 'var(--color-burgundy)' : 'var(--color-border)'}`,
-                  cursor: 'pointer'
-                }}
-              >
-                {d}
-              </button>
-            ))}
-          </div>
-
-          {/* Comprehensive Skills Evidence Catalog */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 'var(--space-4)' }}>
-            {activeSkillsCatalog
-              .filter(item => profileCategoryFilter === 'All' || item.category === profileCategoryFilter)
-              .map(item => (
-                <div
-                  key={item.skill}
-                  style={{
-                    backgroundColor: 'var(--color-surface)',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
-                    padding: 'var(--space-4)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 'var(--space-3)'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <h4 style={{ fontSize: 'var(--text-base)', fontWeight: 700, margin: 0 }}>
-                        {item.skill}
-                      </h4>
-                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)' }}>
-                        {item.category}
-                      </span>
-                    </div>
-
-                    <span
-                      style={{
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        fontSize: '0.72rem',
-                        fontWeight: 700,
-                        backgroundColor:
-                          item.status === 'Strong evidence'
-                            ? 'var(--color-burgundy-soft)'
-                            : item.status === 'Moderate evidence'
-                            ? '#FEF3C7'
-                            : '#F3F4F6',
-                        color:
-                          item.status === 'Strong evidence'
-                            ? 'var(--color-burgundy)'
-                            : item.status === 'Moderate evidence'
-                            ? '#B45309'
-                            : '#6B7280',
-                        border: `1px solid ${
-                          item.status === 'Strong evidence'
-                            ? 'rgba(112,45,61,0.2)'
-                            : item.status === 'Moderate evidence'
-                            ? 'rgba(217,119,6,0.3)'
-                            : '#E5E7EB'
-                        }`
-                      }}
-                    >
-                      {item.status}
-                    </span>
-                  </div>
-
-                  {/* 0-100 Evidence Strength Meter */}
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)', marginBottom: '4px' }}>
-                      <span style={{ fontWeight: 600 }}>Evidence Strength:</span>
-                      <strong style={{ color: item.strength >= 70 ? 'var(--color-burgundy)' : 'inherit' }}>
-                        {item.strength} / 100
-                      </strong>
-                    </div>
-                    <div style={{ width: '100%', height: '8px', backgroundColor: 'var(--color-border)', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div
-                        style={{
-                          width: `${item.strength}%`,
-                          height: '100%',
-                          backgroundColor:
-                            item.strength >= 70
-                              ? 'var(--color-burgundy)'
-                              : item.strength >= 40
-                              ? '#D97706'
-                              : '#9CA3AF',
-                          borderRadius: '4px',
-                          transition: 'width 0.4s ease'
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)', margin: 0 }}>
-                    {item.rationale}
-                  </p>
-
-                  {/* Score Breakdown Accordion / Details */}
-                  {item.strength > 0 && (
-                    <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', backgroundColor: 'var(--color-background)', padding: '6px 8px', borderRadius: '4px' }}>
-                      <span>Calculation: Impl ({item.breakdown.impl}pts) + AST ({item.breakdown.ast}pts) + Tests ({item.breakdown.tests}pts) + Recency ({item.breakdown.recency}pts)</span>
-                    </div>
-                  )}
-
-                  {/* Verified Code Citations Box */}
-                  {item.citations.length > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <strong style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--color-text-muted)' }}>
-                        Verified GitHub Provenance ({item.citations.length}):
-                      </strong>
-                      {item.citations.map(c => (
-                        <div
-                          key={`${c.filePath}-${c.lineRange}`}
-                          style={{
-                            padding: '6px 8px',
-                            backgroundColor: 'var(--color-background)',
-                            borderRadius: '4px',
-                            border: '1px solid var(--color-border)',
-                            fontSize: 'var(--text-xs)'
-                          }}
-                        >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--color-burgundy)' }}>
-                              {c.filePath}
-                            </span>
-                            <a
-                              href={`https://github.com/${c.repoName}/blob/${c.commitSha}/${c.filePath}${c.lineRange}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{ display: 'flex', alignItems: 'center', gap: '3px', color: 'var(--color-burgundy)', textDecoration: 'none', fontWeight: 600, fontSize: '0.7rem' }}
-                            >
-                              <span>{c.lineRange}</span>
-                              <ExternalLink size={10} />
-                            </a>
-                          </div>
-                          <pre style={{ margin: '4px 0 0 0', padding: '4px 6px', backgroundColor: '#1E1E1E', color: '#D4D4D4', borderRadius: '3px', fontSize: '0.68rem', overflowX: 'auto', maxHeight: '70px' }}>
-                            {c.codeSnippet}
-                          </pre>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
-                      No code evidence found in scanned repository scope.
-                    </div>
-                  )}
-
-                  <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '6px', fontSize: 'var(--text-xs)', color: 'var(--color-burgundy)' }}>
-                    <strong>Actionable Next Step:</strong> {item.action}
-                  </div>
-                </div>
-              ))}
-          </div>
+          <EvidenceSkillReportView
+            report={evidenceReport}
+            isLoading={isLoadingEvidence}
+            error={evidenceError}
+            onRefresh={() => loadEvidenceReport()}
+            onAnalyzeRepo={handleAnalyzeRepo}
+            onStartProject={() => navigate('/skills')}
+            onStartDiagnostic={() => navigate('/skills')}
+          />
         </div>
       )}
 

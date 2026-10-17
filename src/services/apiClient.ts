@@ -1,6 +1,10 @@
 import type { UserProfile, CareerPath, RoadmapTask, SkillProgress, ChatMessage, TaskStatus } from '../types';
+import type { EvidenceReportData } from '../types/arena';
 
-const API_BASE = '/api';
+const rawBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
+export const API_BASE = rawBase
+  ? `${rawBase.replace(/\/+$/, '').replace(/\/api$/, '')}/api`
+  : '/api';
 
 class ApiClient {
   private token: string | null = null;
@@ -380,16 +384,92 @@ class ApiClient {
   }
 
   // Repository Skill Profile & Continuous Reassessment
-  public async getRepositorySkillProfile(userId?: string): Promise<any | null> {
+  public async getRepositorySkillProfile(userId?: string, repoUrl?: string): Promise<any | null> {
     const uid = userId || this.currentUserId;
-    const url = uid ? `/skills/repository-profile?user_id=${encodeURIComponent(uid)}` : '/skills/repository-profile';
+    const params = new URLSearchParams();
+    if (uid) params.append('user_id', uid);
+    if (repoUrl) params.append('repo_url', repoUrl);
+    const qs = params.toString();
+    const url = qs ? `/skills/repository-profile?${qs}` : '/skills/repository-profile';
     return await this.request(url);
   }
 
-  public async reanalyseRepository(userId?: string): Promise<any | null> {
+  public async setRepositoryUrl(repoUrl: string, userId?: string): Promise<any | null> {
     const uid = userId || this.currentUserId;
-    const url = uid ? `/skills/reanalyse?user_id=${encodeURIComponent(uid)}` : '/skills/reanalyse';
+    return await this.request('/skills/set-repository', {
+      method: 'POST',
+      body: JSON.stringify({ repo_url: repoUrl, user_id: uid })
+    });
+  }
+
+  public async reanalyseRepository(userId?: string, repoUrl?: string): Promise<any | null> {
+    const uid = userId || this.currentUserId;
+    const params = new URLSearchParams();
+    if (uid) params.append('user_id', uid);
+    if (repoUrl) params.append('repo_url', repoUrl);
+    const qs = params.toString();
+    const url = qs ? `/skills/reanalyse?${qs}` : '/skills/reanalyse';
     return await this.request(url, { method: 'POST' });
+  }
+
+  // Evidence-Based Skill Mapping Engine Endpoints
+  public async getEvidenceSkillReport(userId?: string, repoUrl?: string): Promise<EvidenceReportData | null> {
+    const uid = userId || this.currentUserId;
+    const params = new URLSearchParams();
+    if (uid) params.append('user_id', uid);
+    if (repoUrl) params.append('repo_url', repoUrl);
+    const qs = params.toString();
+    const url = qs ? `/skills/evidence-report?${qs}` : '/skills/evidence-report';
+    return await this.request<EvidenceReportData>(url);
+  }
+
+  public async analyzeCustomRepository(repoUrl: string, userId?: string): Promise<EvidenceReportData | null> {
+    const uid = userId || this.currentUserId;
+    return await this.request<EvidenceReportData>('/skills/evidence-report/analyze', {
+      method: 'POST',
+      body: JSON.stringify({ repo_url: repoUrl, user_id: uid })
+    });
+  }
+
+  // -------------------------------------------------------------
+  // SkillProof Arena Endpoints (Features A, B, C, D, E)
+  // -------------------------------------------------------------
+  public async getArenaCatalog(careerId?: string): Promise<{ diagnostics: any[]; projects: any[] } | null> {
+    const url = careerId ? `/arena/catalog?career_id=${encodeURIComponent(careerId)}` : '/arena/catalog';
+    return await this.request(url);
+  }
+
+  public async getDiagnosticAssessment(assessmentId: string): Promise<any | null> {
+    return await this.request(`/arena/diagnostic/${encodeURIComponent(assessmentId)}`);
+  }
+
+  public async submitDiagnosticAssessment(assessmentId: string, answers: Record<string, string>): Promise<any | null> {
+    return await this.request(`/arena/diagnostic/${encodeURIComponent(assessmentId)}/submit`, {
+      method: 'POST',
+      body: JSON.stringify({ answers })
+    });
+  }
+
+  public async getProjectDefinition(projectId: string): Promise<any | null> {
+    return await this.request(`/arena/project/${encodeURIComponent(projectId)}`);
+  }
+
+  public async runProjectTest(projectId: string, code: string): Promise<any | null> {
+    return await this.request(`/arena/project/${encodeURIComponent(projectId)}/run`, {
+      method: 'POST',
+      body: JSON.stringify({ code })
+    });
+  }
+
+  public async submitProject(projectId: string, code: string, hintsUsed: number = 0): Promise<any | null> {
+    return await this.request(`/arena/project/${encodeURIComponent(projectId)}/submit`, {
+      method: 'POST',
+      body: JSON.stringify({ code, hints_used: hintsUsed })
+    });
+  }
+
+  public async getArenaDashboard(): Promise<any | null> {
+    return await this.request('/arena/dashboard');
   }
 
   // Authentication & Session Management

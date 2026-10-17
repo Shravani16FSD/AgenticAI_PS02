@@ -1,4 +1,5 @@
 import type { UserProfile, CareerPath, RoadmapTask, SkillProgress } from '../types';
+import { API_BASE } from './apiClient';
 
 export interface AIServiceContext {
   profile: UserProfile;
@@ -61,7 +62,7 @@ export class AICoachService {
     try {
       callbacks.onStatusChange?.('Connecting with your career mentor…');
 
-      const remoteEndpoint = (import.meta as any).env?.VITE_AI_API_ENDPOINT || '/api/chat';
+      const remoteEndpoint = (import.meta as any).env?.VITE_AI_API_ENDPOINT || `${API_BASE}/chat`;
 
       const timeoutId = setTimeout(() => {
         this.abortController?.abort();
@@ -89,7 +90,7 @@ export class AICoachService {
           return;
         }
         callbacks.onError(
-          new Error('Unable to connect to the backend server. Please verify the backend is running at http://localhost:8000.')
+          new Error('Unable to connect to the backend server. Please verify the backend service is running.')
         );
         return;
       }

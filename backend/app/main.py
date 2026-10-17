@@ -4,8 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .database import engine, Base, SessionLocal, migrate_database
 from .seed import seed_database
+from .seed_arena import seed_arena_data
 from .schemas import HealthResponse
-from .routers import auth, profile, careers, roadmap, skills, chat, github, jobs, assessments, webhooks, background_jobs
+from .routers import auth, profile, careers, roadmap, skills, chat, github, jobs, assessments, webhooks, background_jobs, arena
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -14,6 +15,7 @@ async def lifespan(app: FastAPI):
     db = SessionLocal()
     try:
         seed_database(db)
+        seed_arena_data(db)
     finally:
         db.close()
     yield
@@ -30,12 +32,15 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Health Check Endpoint
+# Root and Health Check Endpoints
+@app.get("/", tags=["Health"])
+@app.get("/health", response_model=HealthResponse, tags=["Health"])
 @app.get("/api/health", response_model=HealthResponse, tags=["Health"])
 def health_check():
     return {
@@ -57,4 +62,5 @@ app.include_router(jobs.router)
 app.include_router(assessments.router)
 app.include_router(webhooks.router)
 app.include_router(background_jobs.router)
+app.include_router(arena.router)
 

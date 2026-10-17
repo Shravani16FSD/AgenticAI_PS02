@@ -25,6 +25,9 @@ class UserProfile(Base):
     chat_messages = relationship("ChatMessage", back_populates="user", cascade="all, delete-orphan")
     github_accounts = relationship("GitHubAccount", back_populates="user", cascade="all, delete-orphan")
     assessments = relationship("SkillAssessment", back_populates="user", cascade="all, delete-orphan")
+    diagnostic_attempts = relationship("DiagnosticAttempt", back_populates="user", cascade="all, delete-orphan")
+    project_submissions = relationship("ProjectSubmission", back_populates="user", cascade="all, delete-orphan")
+    skill_mastery_records = relationship("SkillMasteryRecord", back_populates="user", cascade="all, delete-orphan")
 
 
 
@@ -318,4 +321,108 @@ class BackgroundJob(Base):
     completed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# -------------------------------------------------------------
+# SkillProof Arena Models (Feature A, B, C, D, E)
+# -------------------------------------------------------------
+class DiagnosticAssessment(Base):
+    __tablename__ = "diagnostic_assessments"
+
+    id = Column(String(100), primary_key=True)
+    career_id = Column(String(100), nullable=False, index=True)
+    skill_name = Column(String(255), nullable=False, index=True)
+    title = Column(String(255), nullable=False)
+    difficulty = Column(String(50), nullable=False, default="beginner")  # beginner, intermediate, advanced
+    time_limit_mins = Column(Integer, nullable=False, default=15)
+    questions = Column(JSON, nullable=False, default=list)  # list of question items
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class DiagnosticAttempt(Base):
+    __tablename__ = "diagnostic_attempts"
+
+    id = Column(String(100), primary_key=True)
+    user_id = Column(String(100), ForeignKey("user_profiles.id"), nullable=False, index=True)
+    assessment_id = Column(String(100), ForeignKey("diagnostic_assessments.id"), nullable=False, index=True)
+    career_id = Column(String(100), nullable=False, index=True)
+    skill_name = Column(String(255), nullable=False, index=True)
+    difficulty = Column(String(50), nullable=False, default="beginner")
+    score = Column(Float, nullable=False, default=0.0)
+    passed = Column(Boolean, nullable=False, default=False)
+    total_questions = Column(Integer, nullable=False, default=0)
+    correct_count = Column(Integer, nullable=False, default=0)
+    strengths = Column(JSON, nullable=False, default=list)
+    weaknesses = Column(JSON, nullable=False, default=list)
+    question_results = Column(JSON, nullable=False, default=list)
+    confidence_level = Column(String(50), nullable=False, default="moderate")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("UserProfile", back_populates="diagnostic_attempts")
+    assessment = relationship("DiagnosticAssessment")
+
+
+class MiniProjectDefinition(Base):
+    __tablename__ = "mini_project_definitions"
+
+    id = Column(String(100), primary_key=True)
+    career_id = Column(String(100), nullable=False, index=True)
+    skill_name = Column(String(255), nullable=False, index=True)
+    difficulty = Column(String(50), nullable=False, default="beginner")  # beginner, intermediate, advanced
+    title = Column(String(255), nullable=False)
+    tagline = Column(String(500), nullable=False)
+    description = Column(Text, nullable=False)
+    starter_code = Column(Text, nullable=False)
+    sample_data = Column(Text, nullable=True)
+    hints = Column(JSON, nullable=False, default=list)
+    rubric = Column(JSON, nullable=False, default=list)
+    public_test_cases = Column(JSON, nullable=False, default=list)
+    hidden_test_cases = Column(JSON, nullable=False, default=list)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ProjectSubmission(Base):
+    __tablename__ = "project_submissions"
+
+    id = Column(String(100), primary_key=True)
+    user_id = Column(String(100), ForeignKey("user_profiles.id"), nullable=False, index=True)
+    project_id = Column(String(100), ForeignKey("mini_project_definitions.id"), nullable=False, index=True)
+    career_id = Column(String(100), nullable=False, index=True)
+    skill_name = Column(String(255), nullable=False, index=True)
+    submitted_code = Column(Text, nullable=False)
+    status = Column(String(50), nullable=False, default="submitted")  # passed, failed, error
+    score = Column(Float, nullable=False, default=0.0)
+    tests_passed = Column(Integer, nullable=False, default=0)
+    tests_total = Column(Integer, nullable=False, default=0)
+    test_results = Column(JSON, nullable=False, default=list)
+    rubric_evaluation = Column(JSON, nullable=False, default=dict)
+    feedback = Column(JSON, nullable=False, default=dict)
+    hints_used = Column(Integer, nullable=False, default=0)
+    execution_output = Column(Text, nullable=True)
+    error_output = Column(Text, nullable=True)
+    execution_time_ms = Column(Float, nullable=False, default=0.0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("UserProfile", back_populates="project_submissions")
+    project = relationship("MiniProjectDefinition")
+
+
+class SkillMasteryRecord(Base):
+    __tablename__ = "skill_mastery_records"
+
+    id = Column(String(100), primary_key=True)
+    user_id = Column(String(100), ForeignKey("user_profiles.id"), nullable=False, index=True)
+    skill_name = Column(String(255), nullable=False, index=True)
+    category = Column(String(100), nullable=False, default="General")
+    mastery_level = Column(String(50), nullable=False, default="novice")  # novice, competent, proficient, advanced
+    mastery_score = Column(Float, nullable=False, default=0.0)
+    diagnostic_score = Column(Float, nullable=True)
+    practical_score = Column(Float, nullable=True)
+    evidence_count = Column(Integer, nullable=False, default=0)
+    last_evidence_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("UserProfile", back_populates="skill_mastery_records")
+
 

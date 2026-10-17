@@ -42,6 +42,8 @@ def get_user_profile(
             else:
                 raise HTTPException(status_code=404, detail=f"User profile '{user_id}' not found")
         return user
+    return current_user
+
 
 @router.put("", response_model=UserProfileResponse)
 def update_user_profile(

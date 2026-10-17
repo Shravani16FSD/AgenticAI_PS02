@@ -2,9 +2,10 @@ import uuid
 from typing import List, Optional
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from ..database import get_db
-from ..models import UserSkill, GitHubRepository, SkillAssessment
+from ..models import UserSkill, GitHubRepository, SkillAssessment, UserProfile
 from ..schemas import UserSkillResponse, UserSkillCreate, LogPracticeRequest
 
 router = APIRouter(prefix="/api/skills", tags=["Skills"])
@@ -162,7 +163,29 @@ _DEFAULT_DEMO_FILES = [
             "      - uses: actions/checkout@v4\n"
             "      - run: pip install -r requirements.txt\n"
             "      - run: pytest tests/\n"
+            "        env:\n"
+            "          PYTHONPATH: .\n"
         )
+    },
+    {
+        "path": "README.md",
+        "content": (
+            "# Financial Data Pipeline & Risk Analytics Lab\n\n"
+            "An enterprise data ingestion, VWAP calculation, and risk analytics service built with FastAPI, Pandas, and PostgreSQL.\n\n"
+            "## Architecture\n"
+            "- Ingests tick logs and computes Volume Weighted Average Price (VWAP).\n"
+            "- Generates aggregated exposure distribution charts.\n"
+            "- Exposes REST endpoints for Value-at-Risk (VaR) calculations.\n\n"
+            "## Setup & Installation\n"
+            "```bash\n"
+            "pip install -r requirements.txt\n"
+            "pytest tests/\n"
+            "```\n"
+        )
+    },
+    {
+        "path": "requirements.txt",
+        "content": "fastapi>=0.110.0\npandas>=2.1.0\nsqlalchemy>=2.0.0\nmatplotlib>=3.8.0\nseaborn>=0.13.0\npytest>=8.0.0\n"
     }
 ]
 
@@ -385,16 +408,65 @@ def _resolve_user_id(uid: Optional[str]) -> str:
     return uid if uid in _USER_REPO_STATES else "default_user"
 
 
+class SetRepoUrlRequest(BaseModel):
+    repo_url: str
+    user_id: Optional[str] = None
+
+
+@router.post("/set-repository")
+def set_user_repository(
+    req: SetRepoUrlRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Sets the active repository URL for skill evidence extraction and further operations.
+    """
+    resolved_id = _resolve_user_id(req.user_id)
+    if resolved_id not in _USER_REPO_STATES:
+        _USER_REPO_STATES[resolved_id] = dict(_USER_REPO_STATES["default_user"])
+    repo_state = _USER_REPO_STATES[resolved_id]
+
+    clean = req.repo_url.strip().replace("https://github.com/", "").replace("http://github.com/", "").replace("github.com/", "").strip("/")
+    parts = clean.split("/")
+    repo_name = f"{parts[0]}/{parts[1]}" if len(parts) >= 2 else (clean or "custom/repository")
+
+    new_sha = f"c{uuid.uuid4().hex[:11]}"
+    repo_state["repo_full_name"] = repo_name
+    repo_state["commit_sha"] = new_sha
+    repo_state["last_scanned_at"] = datetime.now(timezone.utc).isoformat()
+    repo_state["repo_url"] = f"https://github.com/{repo_name}"
+
+    analyzer = RepositoryEvidenceAnalyzer(repo_name, new_sha)
+    result = analyzer.analyze_repository_files(repo_state["files"])
+    result["user_id"] = resolved_id
+    result["repository_name"] = repo_name
+    result["repo_url"] = f"https://github.com/{repo_name}"
+    result["commit_sha"] = new_sha
+    result["last_scanned_at"] = repo_state["last_scanned_at"]
+    result["message"] = f"Repository {repo_name} linked and analyzed successfully."
+    return result
+
+
 @router.get("/repository-profile")
 def get_repository_skill_profile(
     user_id: Optional[str] = Query(None),
+    repo_url: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
     """
     Returns the evidence-based skill profile derived from inspected repository code for the user.
     """
     resolved_id = _resolve_user_id(user_id)
+    if resolved_id not in _USER_REPO_STATES:
+        _USER_REPO_STATES[resolved_id] = dict(_USER_REPO_STATES["default_user"])
     repo_state = _USER_REPO_STATES.get(resolved_id, _USER_REPO_STATES["default_user"])
+
+    if repo_url:
+        clean = repo_url.strip().replace("https://github.com/", "").replace("http://github.com/", "").replace("github.com/", "").strip("/")
+        parts = clean.split("/")
+        if len(parts) >= 2:
+            repo_state["repo_full_name"] = f"{parts[0]}/{parts[1]}"
+            repo_state["repo_url"] = f"https://github.com/{parts[0]}/{parts[1]}"
 
     analyzer = RepositoryEvidenceAnalyzer(
         repo_state["repo_full_name"],
@@ -402,6 +474,8 @@ def get_repository_skill_profile(
     )
     result = analyzer.analyze_repository_files(repo_state["files"])
     result["user_id"] = resolved_id
+    result["repository_name"] = repo_state["repo_full_name"]
+    result["repo_url"] = repo_state.get("repo_url", f"https://github.com/{repo_state['repo_full_name']}")
     result["last_scanned_at"] = repo_state["last_scanned_at"]
     return result
 
@@ -409,13 +483,23 @@ def get_repository_skill_profile(
 @router.post("/reanalyse")
 def trigger_repository_reanalysis(
     user_id: Optional[str] = Query(None),
+    repo_url: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
     """
     Simulates continuous reassessment: pulls latest commit SHA and reanalyzes code for the user.
     """
     resolved_id = _resolve_user_id(user_id)
+    if resolved_id not in _USER_REPO_STATES:
+        _USER_REPO_STATES[resolved_id] = dict(_USER_REPO_STATES["default_user"])
     repo_state = _USER_REPO_STATES.get(resolved_id, _USER_REPO_STATES["default_user"])
+
+    if repo_url:
+        clean = repo_url.strip().replace("https://github.com/", "").replace("http://github.com/", "").replace("github.com/", "").strip("/")
+        parts = clean.split("/")
+        if len(parts) >= 2:
+            repo_state["repo_full_name"] = f"{parts[0]}/{parts[1]}"
+            repo_state["repo_url"] = f"https://github.com/{parts[0]}/{parts[1]}"
 
     new_sha = f"c{uuid.uuid4().hex[:11]}"
     repo_state["commit_sha"] = new_sha
@@ -427,6 +511,8 @@ def trigger_repository_reanalysis(
     )
     result = analyzer.analyze_repository_files(repo_state["files"])
     result["user_id"] = resolved_id
+    result["repository_name"] = repo_state["repo_full_name"]
+    result["repo_url"] = repo_state.get("repo_url", f"https://github.com/{repo_state['repo_full_name']}")
     result["last_scanned_at"] = repo_state["last_scanned_at"]
     result["message"] = f"Repository reassessment complete for commit {new_sha}."
     return result
@@ -445,3 +531,140 @@ def get_standard_skill_taxonomy():
         }
         for s in taxonomy_registry.definitions
     ]
+
+
+# -------------------------------------------------------------
+# Evidence-Based Skill Mapping Engine API Endpoints
+# -------------------------------------------------------------
+from ..services.skill_mapping_engine import (
+    skill_mapping_engine,
+    EvidenceReportData
+)
+from ..services.github_service import github_service
+
+
+@router.get("/evidence-report", response_model=EvidenceReportData)
+async def get_evidence_skill_report(
+    user_id: Optional[str] = Query(None),
+    repo_url: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Analyzes structured repository evidence and generates a transparent skill mapping report,
+    skill gaps, and 3 prioritized next steps.
+    """
+    resolved_id = _resolve_user_id(user_id)
+    if resolved_id not in _USER_REPO_STATES:
+        _USER_REPO_STATES[resolved_id] = dict(_USER_REPO_STATES["default_user"])
+    repo_state = _USER_REPO_STATES.get(resolved_id, _USER_REPO_STATES["default_user"])
+
+    files = repo_state["files"]
+    repo_name = repo_state["repo_full_name"]
+    target_url = repo_state.get("repo_url", f"https://github.com/{repo_name}")
+    commit_sha = repo_state.get("commit_sha", "HEAD")
+    is_sample = True if (resolved_id in ("default_user", "default") and not repo_url) else False
+
+    # If repo_url explicitly passed, try pulling from GitHub API or resolve
+    if repo_url:
+        clean = repo_url.strip().replace("https://github.com/", "").replace("http://github.com/", "").replace("github.com/", "").strip("/")
+        parts = clean.split("/")
+        if len(parts) >= 2:
+            custom_name = f"{parts[0]}/{parts[1]}"
+            target_url = f"https://github.com/{custom_name}"
+            try:
+                fetched = await github_service.fetch_scannable_files(custom_name, "main", max_files=20)
+                if fetched and len(fetched) > 0:
+                    files = fetched
+                    repo_name = custom_name
+                    commit_sha = f"c{uuid.uuid4().hex[:10]}"
+                    is_sample = False
+                else:
+                    repo_name = custom_name
+                    is_sample = True
+            except Exception:
+                repo_name = custom_name
+                is_sample = True
+
+    # Look up user's target career for personalized recommendations
+    user_prof = db.query(UserProfile).filter(UserProfile.id == resolved_id).first()
+    target_career = "Software Engineer"
+    if user_prof and user_prof.target_career_id:
+        target_career = user_prof.target_career_id.replace("-", " ").title()
+
+    report = skill_mapping_engine.analyze_repository(
+        files=files,
+        repo_name=repo_name,
+        repo_url=target_url,
+        commit_sha=commit_sha,
+        is_sample_data=is_sample,
+        target_career=target_career
+    )
+    return report
+
+
+@router.post("/evidence-report/analyze", response_model=EvidenceReportData)
+async def analyze_custom_repository(
+    req: SetRepoUrlRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Analyzes a given repository URL in real-time, extracting evidence from GitHub API
+    with graceful fallback to local scannable state.
+    """
+    resolved_id = _resolve_user_id(req.user_id)
+    clean = req.repo_url.strip().replace("https://github.com/", "").replace("http://github.com/", "").replace("github.com/", "").strip("/")
+    parts = clean.split("/")
+    repo_name = f"{parts[0]}/{parts[1]}" if len(parts) >= 2 else (clean or "custom/repository")
+    target_url = f"https://github.com/{repo_name}"
+    commit_sha = f"c{uuid.uuid4().hex[:10]}"
+    is_sample = False
+
+    files = []
+    try:
+        fetched = await github_service.fetch_scannable_files(repo_name, "main", max_files=25)
+        if fetched and len(fetched) > 0:
+            files = fetched
+        elif resolved_id in _USER_REPO_STATES and _USER_REPO_STATES[resolved_id]["repo_full_name"] == repo_name:
+            files = _USER_REPO_STATES[resolved_id]["files"]
+            is_sample = True
+        elif any(state.get("repo_full_name") == repo_name for state in _USER_REPO_STATES.values()):
+            matched_state = next(state for state in _USER_REPO_STATES.values() if state.get("repo_full_name") == repo_name)
+            files = matched_state["files"]
+            is_sample = True
+        else:
+            files = _DEFAULT_DEMO_FILES
+            is_sample = True
+    except Exception:
+        if resolved_id in _USER_REPO_STATES and _USER_REPO_STATES[resolved_id]["repo_full_name"] == repo_name:
+            files = _USER_REPO_STATES[resolved_id]["files"]
+        elif any(state.get("repo_full_name") == repo_name for state in _USER_REPO_STATES.values()):
+            matched_state = next(state for state in _USER_REPO_STATES.values() if state.get("repo_full_name") == repo_name)
+            files = matched_state["files"]
+        else:
+            files = _DEFAULT_DEMO_FILES
+        is_sample = True
+
+    # Update user repo state
+    if resolved_id not in _USER_REPO_STATES:
+        _USER_REPO_STATES[resolved_id] = dict(_USER_REPO_STATES["default_user"])
+    _USER_REPO_STATES[resolved_id]["repo_full_name"] = repo_name
+    _USER_REPO_STATES[resolved_id]["repo_url"] = target_url
+    _USER_REPO_STATES[resolved_id]["commit_sha"] = commit_sha
+    _USER_REPO_STATES[resolved_id]["files"] = files
+    _USER_REPO_STATES[resolved_id]["last_scanned_at"] = datetime.now(timezone.utc).isoformat()
+
+    user_prof = db.query(UserProfile).filter(UserProfile.id == resolved_id).first()
+    target_career = "Software Engineer"
+    if user_prof and user_prof.target_career_id:
+        target_career = user_prof.target_career_id.replace("-", " ").title()
+
+    report = skill_mapping_engine.analyze_repository(
+        files=files,
+        repo_name=repo_name,
+        repo_url=target_url,
+        commit_sha=commit_sha,
+        is_sample_data=is_sample,
+        target_career=target_career
+    )
+    return report
+
