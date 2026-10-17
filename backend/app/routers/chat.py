@@ -13,7 +13,7 @@ from ..services import ai_service
 
 from ..config import settings
 
-logger = logging.getLogger("chapter.routers.chat")
+logger = logging.getLogger("nexora.routers.chat")
 
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
 
@@ -26,8 +26,6 @@ def get_chat_status():
         "model": settings.GEMINI_MODEL,
         "configured": ai_service.has_configured_api_key(),
     }
-
-
 
 @router.get("/history", response_model=List[ChatMessageResponse])
 def get_chat_history(
@@ -90,7 +88,11 @@ async def send_chat_message(
     if not trimmed_prompt:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
+<<<<<<< HEAD
     session_id = chat_in.session_id or chat_in.conversation_id or "default_session"
+=======
+    session_id = chat_in.session_id or "default_session"
+>>>>>>> origin/main
 
     # Check whether Gemini API key is configured before doing anything else
     if not ai_service.has_configured_api_key():
