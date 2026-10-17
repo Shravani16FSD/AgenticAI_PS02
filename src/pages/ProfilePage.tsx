@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Download, RotateCcw, Bookmark, Check, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Download, RotateCcw, Bookmark, Check, Trash2, LogOut, User } from 'lucide-react';
 import { PageContainer, PageHeading } from '../components/ui/Typography';
 import { PrimaryButton, SecondaryButton } from '../components/ui/Buttons';
 import { TextInput, SelectInput } from '../components/ui/Inputs';
@@ -7,6 +8,7 @@ import { ConfirmationDialog } from '../components/ui/Overlays';
 import { useApp } from '../context/AppContext';
 
 export const ProfilePage: React.FC = () => {
+  const navigate = useNavigate();
   const {
     profile,
     updateProfile,
@@ -16,7 +18,11 @@ export const ProfilePage: React.FC = () => {
     toggleSaveCareer,
     roadmapTasks,
     skills,
-    overallProgressPercent
+    overallProgressPercent,
+    activeUserId,
+    availableUsers,
+    loginUser,
+    logoutUser
   } = useApp();
 
   const [name, setName] = useState(profile.name || '');
@@ -25,6 +31,37 @@ export const ProfilePage: React.FC = () => {
   const [targetCareerId, setTargetCareerId] = useState(profile.targetCareerId || 'ai-product-engineer');
   const [weeklyHours, setWeeklyHours] = useState(profile.weeklyHours || 8);
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [isSwitching, setIsSwitching] = useState(false);
+
+  // Synchronize form fields when profile switches or updates
+  useEffect(() => {
+    setName(profile.name || '');
+    setStudyStatus(profile.studyStatus || '');
+    setPrimaryGoal(profile.primaryGoal || '');
+    setTargetCareerId(profile.targetCareerId || 'ai-product-engineer');
+    setWeeklyHours(profile.weeklyHours || 8);
+  }, [profile]);
+
+  const handleSwitchUser = async (newUserId: string) => {
+    if (newUserId === activeUserId || isSwitching) return;
+    setIsSwitching(true);
+    try {
+      await loginUser(newUserId);
+    } finally {
+      setIsSwitching(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (isSwitching) return;
+    setIsSwitching(true);
+    try {
+      await logoutUser();
+      navigate('/login');
+    } finally {
+      setIsSwitching(false);
+    }
+  };
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +76,7 @@ export const ProfilePage: React.FC = () => {
 
   const handleExportPlan = () => {
     const activeCareer = careerPaths.find(c => c.id === profile.targetCareerId);
-    const planText = `# ${profile.name || 'My'} Career Plan — Chapter Mentor
+    const planText = `# ${profile.name || 'My'} Career Plan — NEXORA Mentor
 Date: ${new Date().toLocaleDateString()}
 Status: ${profile.studyStatus}
 Target Role: ${activeCareer?.title || 'Technology'}
@@ -97,6 +134,102 @@ ${skills.map(s => `- ${s.name}: ${s.hoursSpent}/${s.targetHours} hours logged ($
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+        {/* Active Account & User Session Switcher (Unobtrusive) */}
+        <section
+          className="panel"
+          aria-labelledby="account-session-title"
+          style={{
+            backgroundColor: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-md)',
+            padding: 'var(--space-4) var(--space-5)'
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 'var(--space-3)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+              <div
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--color-burgundy-soft)',
+                  color: 'var(--color-burgundy)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 700,
+                  fontSize: 'var(--text-sm)',
+                  border: '1px solid var(--color-border)'
+                }}
+              >
+                <User size={18} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <span id="account-session-title" style={{ fontWeight: 600, fontSize: 'var(--text-sm)', color: 'var(--color-text)' }}>
+                    {profile.name || 'Current User'}
+                  </span>
+                  <span className="badge badge-burgundy" style={{ fontSize: '0.6875rem' }}>
+                    Active User
+                  </span>
+                </div>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+                  Session ID: <code style={{ fontSize: '0.75rem', color: 'var(--color-burgundy)' }}>{activeUserId}</code> &bull; {profile.studyStatus}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                <label htmlFor="user-session-select" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)', fontWeight: 500 }}>
+                  Switch User:
+                </label>
+                <select
+                  id="user-session-select"
+                  aria-label="Switch User Account"
+                  value={activeUserId}
+                  disabled={isSwitching}
+                  onChange={e => handleSwitchUser(e.target.value)}
+                  style={{
+                    padding: '0.375rem 0.625rem',
+                    fontSize: 'var(--text-xs)',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--color-border)',
+                    backgroundColor: 'var(--color-surface-muted)',
+                    color: 'var(--color-text)',
+                    cursor: isSwitching ? 'wait' : 'pointer',
+                    outline: 'none'
+                  }}
+                >
+                  {availableUsers.map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.name} ({u.id})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <SecondaryButton
+                size="sm"
+                onClick={handleLogout}
+                disabled={isSwitching}
+                icon={<LogOut size={13} />}
+                style={{ fontSize: 'var(--text-xs)', padding: '0.375rem 0.625rem' }}
+              >
+                Sign out
+              </SecondaryButton>
+            </div>
+          </div>
+        </section>
+
         {/* Profile Settings Form */}
         <section className="panel" aria-labelledby="profile-settings-title" style={{ backgroundColor: 'var(--color-surface)' }}>
           <h3 id="profile-settings-title" style={{ fontSize: 'var(--text-lg)', fontFamily: 'var(--font-display)', fontWeight: 600, marginBottom: 'var(--space-4)' }}>
@@ -212,6 +345,69 @@ ${skills.map(s => `- ${s.name}: ${s.hoursSpent}/${s.targetHours} hours logged ($
               ))}
             </div>
           )}
+        </section>
+
+        {/* Account Authentication & Log Out Section */}
+        <section
+          className="panel"
+          aria-labelledby="account-security-title"
+          style={{
+            backgroundColor: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-md)',
+            padding: 'var(--space-5)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'var(--space-3)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
+            <div>
+              <span className="badge badge-burgundy" style={{ marginBottom: 'var(--space-1)' }}>
+                ACCOUNT & SECURITY
+              </span>
+              <h3
+                id="account-security-title"
+                style={{
+                  fontSize: 'var(--text-base)',
+                  fontWeight: 600,
+                  color: 'var(--color-text)',
+                  margin: '4px 0 0 0'
+                }}
+              >
+                Sign In & Session Management
+              </h3>
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)', marginTop: '4px', maxWidth: '520px', lineHeight: 1.5 }}>
+                Currently authenticated as <strong>{profile.name || activeUserId}</strong> ({activeUserId}). Logging out ends your current browser session and opens the NEXORA access dashboard.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', alignItems: 'center' }}>
+              <SecondaryButton
+                size="sm"
+                onClick={() => navigate('/login')}
+                icon={<User size={13} />}
+                style={{ fontSize: 'var(--text-xs)' }}
+              >
+                Switch Account
+              </SecondaryButton>
+
+              <SecondaryButton
+                size="sm"
+                onClick={handleLogout}
+                disabled={isSwitching}
+                icon={<LogOut size={13} style={{ color: 'var(--color-burgundy)' }} />}
+                style={{
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--color-burgundy)',
+                  borderColor: 'var(--color-burgundy)',
+                  backgroundColor: 'var(--color-burgundy-soft)'
+                }}
+              >
+                {isSwitching ? 'Signing out...' : 'Log Out of NEXORA'}
+              </SecondaryButton>
+            </div>
+          </div>
         </section>
 
         {/* Data Reset & Storage Management */}

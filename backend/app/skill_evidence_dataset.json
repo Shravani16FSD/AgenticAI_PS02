@@ -1,0 +1,577 @@
+{
+  "metadata": {
+    "dataset_name": "SkillTrace-Evidence-Code-Benchmark-v1",
+    "description": "Human-reviewed code snippet evidence benchmark for repository skill assessment",
+    "license": "Apache-2.0",
+    "annotation_method": "Dual-expert AST code review and ground-truth rubric labeling",
+    "split_strategy": "GroupKFold by repository_id (zero leakage across train/val/test)",
+    "categories": [
+      "Strong evidence",
+      "Moderate evidence",
+      "Limited evidence"
+    ],
+    "version": "1.0.0"
+  },
+  "samples": [
+    {
+      "repository_id": "quant-edge/trading-etl",
+      "file_path": "pipelines/ingest_ticks.py",
+      "skill": "Pandas",
+      "evidence_category": "Strong evidence",
+      "code_snippet": "import pandas as pd\ndef clean_tick_stream(raw_csv_path: str) -> pd.DataFrame:\n    df = pd.read_csv(raw_csv_path, parse_dates=['timestamp'])\n    df.dropna(subset=['price', 'volume'], inplace=True)\n    df['rolling_vwap'] = (df['price'] * df['volume']).cumsum() / df['volume'].cumsum()\n    df['z_score'] = (df['price'] - df['price'].rolling(50).mean()) / df['price'].rolling(50).std()\n    return df.drop_duplicates(subset=['trade_id'])\n",
+      "ast_signals": {
+        "call_count": 8,
+        "func_def_count": 1,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 8
+      }
+    },
+    {
+      "repository_id": "quant-edge/trading-etl",
+      "file_path": "sql/marts/trade_summary.sql",
+      "skill": "SQL",
+      "evidence_category": "Strong evidence",
+      "code_snippet": "WITH partitioned_trades AS (\n    SELECT symbol, executed_at, price, volume,\n           ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY executed_at DESC) as rn,\n           SUM(volume) OVER (PARTITION BY symbol) as total_volume\n    FROM trades\n    WHERE status = 'FILLED'\n)\nSELECT t.symbol, t.price, t.total_volume, b.benchmark_price\nFROM partitioned_trades t\nINNER JOIN benchmarks b ON t.symbol = b.symbol\nWHERE t.rn = 1\nGROUP BY t.symbol, t.price, t.total_volume, b.benchmark_price\nHAVING t.total_volume > 10000;\n",
+      "ast_signals": {
+        "call_count": 4,
+        "func_def_count": 0,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 13
+      }
+    },
+    {
+      "repository_id": "quant-edge/trading-etl",
+      "file_path": "pipelines/cleaner.py",
+      "skill": "Data Cleaning",
+      "evidence_category": "Moderate evidence",
+      "code_snippet": "def clean_missing_records(records_df):\n    clean = records_df.copy()\n    clean['bid'].fillna(clean['ask'], inplace=True)\n    clean.dropna(subset=['symbol'], inplace=True)\n    return clean\n",
+      "ast_signals": {
+        "call_count": 3,
+        "func_def_count": 1,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 5
+      }
+    },
+    {
+      "repository_id": "quant-edge/trading-etl",
+      "file_path": "helpers/compat.py",
+      "skill": "NumPy",
+      "evidence_category": "Limited evidence",
+      "code_snippet": "import numpy as np\n# Unused import or single scalar placeholder\nDEFAULT_VAL = np.nan\n",
+      "ast_signals": {
+        "call_count": 0,
+        "func_def_count": 0,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": true,
+        "is_tutorial_syntax": true,
+        "line_span": 3
+      }
+    },
+    {
+      "repository_id": "apex-fintech/risk-service",
+      "file_path": "app/routers/risk_api.py",
+      "skill": "APIs",
+      "evidence_category": "Strong evidence",
+      "code_snippet": "from fastapi import APIRouter, HTTPException, Depends, status\nrouter = APIRouter(prefix='/api/v1/risk', tags=['Risk'])\n\n@router.post('/assess', status_code=status.HTTP_200_OK)\nasync def calculate_portfolio_var(payload: RiskAssessmentRequest, db: Session = Depends(get_db)):\n    if payload.portfolio_value <= 0:\n        raise HTTPException(status_code=400, detail='Portfolio value must be positive')\n    var_result = compute_monte_carlo_var(payload.positions, payload.confidence_level)\n    return {'status': 'success', 'var_95': var_result.value, 'exposures': var_result.breakdown}\n",
+      "ast_signals": {
+        "call_count": 6,
+        "func_def_count": 1,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 9
+      }
+    },
+    {
+      "repository_id": "apex-fintech/risk-service",
+      "file_path": "app/models/portfolio.py",
+      "skill": "Database Design",
+      "evidence_category": "Strong evidence",
+      "code_snippet": "from sqlalchemy import Column, String, Integer, Float, ForeignKey, DateTime\nfrom sqlalchemy.orm import relationship\nfrom app.database import Base\n\nclass Portfolio(Base):\n    __tablename__ = 'portfolios'\n    id = Column(String(36), primary_key=True)\n    user_id = Column(String(36), ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)\n    name = Column(String(100), nullable=False)\n    total_aum = Column(Float, default=0.0)\n    positions = relationship('Position', back_populates='portfolio', cascade='all, delete-orphan')\n",
+      "ast_signals": {
+        "call_count": 7,
+        "func_def_count": 0,
+        "class_def_count": 1,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 11
+      }
+    },
+    {
+      "repository_id": "apex-fintech/risk-service",
+      "file_path": "tests/test_risk_calculations.py",
+      "skill": "Testing",
+      "evidence_category": "Strong evidence",
+      "code_snippet": "import pytest\nfrom app.services.calculator import compute_monte_carlo_var\n\ndef test_var_positive_returns():\n    positions = [{'symbol': 'AAPL', 'weight': 0.6}, {'symbol': 'GOOGL', 'weight': 0.4}]\n    result = compute_monte_carlo_var(positions, 0.95)\n    assert result.value > 0, 'VaR must be positive'\n    assert len(result.breakdown) == 2\n    with pytest.raises(ValueError):\n        compute_monte_carlo_var([], 0.95)\n",
+      "ast_signals": {
+        "call_count": 5,
+        "func_def_count": 1,
+        "class_def_count": 0,
+        "test_assert_count": 2,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 10
+      }
+    },
+    {
+      "repository_id": "apex-fintech/risk-service",
+      "file_path": "tests/stubs/test_dummy.py",
+      "skill": "Testing",
+      "evidence_category": "Limited evidence",
+      "code_snippet": "def test_placeholder():\n    # Unimplemented test\n    pass\n",
+      "ast_signals": {
+        "call_count": 0,
+        "func_def_count": 1,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": true,
+        "line_span": 3
+      }
+    },
+    {
+      "repository_id": "ml-platform/fraud-detection",
+      "file_path": "src/train.py",
+      "skill": "Model Training",
+      "evidence_category": "Strong evidence",
+      "code_snippet": "from sklearn.ensemble import RandomForestClassifier\nfrom sklearn.model_selection import GridSearchCV, StratifiedKFold\n\ndef train_fraud_classifier(X_train, y_train):\n    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)\n    rf = RandomForestClassifier(class_weight='balanced', random_state=42)\n    grid = GridSearchCV(rf, param_grid={'n_estimators': [100, 200], 'max_depth': [10, 20]}, cv=cv, scoring='roc_auc')\n    grid.fit(X_train, y_train)\n    return grid.best_estimator_\n",
+      "ast_signals": {
+        "call_count": 6,
+        "func_def_count": 1,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 9
+      }
+    },
+    {
+      "repository_id": "ml-platform/fraud-detection",
+      "file_path": "src/evaluate.py",
+      "skill": "Model Evaluation",
+      "evidence_category": "Strong evidence",
+      "code_snippet": "from sklearn.metrics import classification_report, roc_auc_score, confusion_matrix\n\ndef evaluate_holdout(model, X_test, y_test):\n    preds = model.predict(X_test)\n    probs = model.predict_proba(X_test)[:, 1]\n    auc = roc_auc_score(y_test, probs)\n    report = classification_report(y_test, preds, output_dict=True)\n    cm = confusion_matrix(y_test, preds)\n    return {'auc': auc, 'precision': report['1']['precision'], 'recall': report['1']['recall'], 'confusion_matrix': cm}\n",
+      "ast_signals": {
+        "call_count": 6,
+        "func_def_count": 1,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 9
+      }
+    },
+    {
+      "repository_id": "ml-platform/fraud-detection",
+      "file_path": "src/features.py",
+      "skill": "Feature Engineering",
+      "evidence_category": "Strong evidence",
+      "code_snippet": "from sklearn.preprocessing import StandardScaler, OneHotEncoder\nfrom sklearn.compose import ColumnTransformer\n\ndef build_preprocessor(numeric_cols, categorical_cols):\n    return ColumnTransformer(transformers=[\n        ('num', StandardScaler(), numeric_cols),\n        ('cat', OneHotEncoder(handle_unknown='ignore', sparse_output=False), categorical_cols)\n    ])\n",
+      "ast_signals": {
+        "call_count": 4,
+        "func_def_count": 1,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 7
+      }
+    },
+    {
+      "repository_id": "ml-platform/fraud-detection",
+      "file_path": "src/quick_test.py",
+      "skill": "Scikit-learn",
+      "evidence_category": "Moderate evidence",
+      "code_snippet": "from sklearn.linear_model import LogisticRegression\nclf = LogisticRegression()\nclf.fit(X_sample, y_sample)\n",
+      "ast_signals": {
+        "call_count": 2,
+        "func_def_count": 0,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 3
+      }
+    },
+    {
+      "repository_id": "devops-core/cloud-workflows",
+      "file_path": ".github/workflows/deploy.yml",
+      "skill": "CI/CD",
+      "evidence_category": "Strong evidence",
+      "code_snippet": "name: Production CI/CD\non:\n  push:\n    branches: [main]\njobs:\n  test-and-build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - name: Set up Python\n        uses: actions/setup-python@v5\n        with: { python-version: '3.11' }\n      - run: pip install -r requirements.txt\n      - run: pytest --cov=src tests/\n      - name: Build Docker Container\n        run: docker build -t myapp:${{ github.sha }} .\n",
+      "ast_signals": {
+        "call_count": 4,
+        "func_def_count": 0,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 16
+      }
+    },
+    {
+      "repository_id": "devops-core/cloud-workflows",
+      "file_path": ".github/workflows/echo.yml",
+      "skill": "CI/CD",
+      "evidence_category": "Limited evidence",
+      "code_snippet": "name: Echo\non: workflow_dispatch\njobs:\n  say-hello:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo 'Hello World'\n",
+      "ast_signals": {
+        "call_count": 1,
+        "func_def_count": 0,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": true,
+        "line_span": 7
+      }
+    },
+    {
+      "repository_id": "analytics-stack/dbt-lakehouse",
+      "file_path": "models/marts/fct_orders.sql",
+      "skill": "SQL Transformations",
+      "evidence_category": "Strong evidence",
+      "code_snippet": "{{ config(materialized='incremental', unique_key='order_id') }}\nWITH staged_orders AS (\n    SELECT * FROM {{ ref('stg_orders') }}\n),\nstaged_customers AS (\n    SELECT * FROM {{ ref('stg_customers') }}\n)\nSELECT\n    {{ dbt_utils.generate_surrogate_key(['o.order_id', 'o.customer_id']) }} AS order_key,\n    o.order_id,\n    c.customer_segment,\n    o.order_amount_usd,\n    o.order_date\nFROM staged_orders o\nLEFT JOIN staged_customers c ON o.customer_id = c.customer_id\n{% if is_incremental() %}\nWHERE o.order_date > (SELECT MAX(order_date) FROM {{ this }})\n{% endif %}\n",
+      "ast_signals": {
+        "call_count": 5,
+        "func_def_count": 0,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 18
+      }
+    },
+    {
+      "repository_id": "analytics-stack/dbt-lakehouse",
+      "file_path": "models/schema.yml",
+      "skill": "Data Quality Testing",
+      "evidence_category": "Strong evidence",
+      "code_snippet": "version: 2\nmodels:\n  - name: fct_orders\n    columns:\n      - name: order_id\n        tests:\n          - unique\n          - not_null\n      - name: customer_id\n        tests:\n          - relationships:\n              to: ref('dim_customers')\n              field: customer_id\n",
+      "ast_signals": {
+        "call_count": 3,
+        "func_def_count": 0,
+        "class_def_count": 0,
+        "test_assert_count": 3,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 12
+      }
+    },
+    {
+      "repository_id": "analytics-stack/dbt-lakehouse",
+      "file_path": "dags/orchestration_dag.py",
+      "skill": "Data Pipelines",
+      "evidence_category": "Strong evidence",
+      "code_snippet": "from airflow import DAG\nfrom airflow.operators.bash import BashOperator\nfrom datetime import datetime, timedelta\n\nwith DAG('dbt_daily_run', schedule_interval='0 2 * * *', start_date=datetime(2025, 1, 1), retries=2) as dag:\n    run_staging = BashOperator(task_id='dbt_run_stg', bash_command='dbt run --select stg')\n    test_staging = BashOperator(task_id='dbt_test_stg', bash_command='dbt test --select stg')\n    run_marts = BashOperator(task_id='dbt_run_marts', bash_command='dbt run --select marts')\n    run_staging >> test_staging >> run_marts\n",
+      "ast_signals": {
+        "call_count": 6,
+        "func_def_count": 0,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 10
+      }
+    },
+    {
+      "repository_id": "beginner-student/intro-python",
+      "file_path": "exercise1.py",
+      "skill": "Python",
+      "evidence_category": "Limited evidence",
+      "code_snippet": "# Lesson 1 print statements\nprint('Hello World')\nx = 5\ny = 10\nprint(x + y)\n",
+      "ast_signals": {
+        "call_count": 2,
+        "func_def_count": 0,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": true,
+        "line_span": 5
+      }
+    },
+    {
+      "repository_id": "beginner-student/intro-python",
+      "file_path": "exercise2.py",
+      "skill": "Pandas",
+      "evidence_category": "Limited evidence",
+      "code_snippet": "import pandas as pd\n# Just imported, no dataframe operations performed\nprint('Pandas installed')\n",
+      "ast_signals": {
+        "call_count": 1,
+        "func_def_count": 0,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": true,
+        "is_tutorial_syntax": true,
+        "line_span": 3
+      }
+    },
+    {
+      "repository_id": "beginner-student/intro-python",
+      "file_path": "functions.py",
+      "skill": "Python",
+      "evidence_category": "Moderate evidence",
+      "code_snippet": "def calculate_tax(income: float, rate: float = 0.15) -> float:\n    if income < 0:\n        raise ValueError('Income cannot be negative')\n    return income * rate\n",
+      "ast_signals": {
+        "call_count": 1,
+        "func_def_count": 1,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 4
+      }
+    },
+    {
+      "repository_id": "viz-studio/dashboard-charts",
+      "file_path": "charts/distributions.py",
+      "skill": "Data Visualization",
+      "evidence_category": "Strong evidence",
+      "code_snippet": "import matplotlib.pyplot as plt\nimport seaborn as sns\n\ndef plot_revenue_distributions(df, output_path='charts/revenue_dist.png'):\n    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))\n    sns.histplot(df['revenue'], kde=True, ax=ax1, color='#702D3D')\n    ax1.set_title('Revenue Density Distribution', fontsize=14, weight='bold')\n    sns.boxplot(x='category', y='revenue', data=df, ax=ax2, palette='Set2')\n    ax2.set_xticklabels(ax2.get_xticklabels(), rotation=45)\n    plt.tight_layout()\n    plt.savefig(output_path, dpi=300)\n    plt.close()\n",
+      "ast_signals": {
+        "call_count": 9,
+        "func_def_count": 1,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 11
+      }
+    },
+    {
+      "repository_id": "viz-studio/dashboard-charts",
+      "file_path": "charts/simple_plot.py",
+      "skill": "Data Visualization",
+      "evidence_category": "Moderate evidence",
+      "code_snippet": "import matplotlib.pyplot as plt\ndef show_line(x, y):\n    plt.plot(x, y)\n    plt.show()\n",
+      "ast_signals": {
+        "call_count": 2,
+        "func_def_count": 1,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 4
+      }
+    },
+    {
+      "repository_id": "viz-studio/dashboard-charts",
+      "file_path": "eda/profiler.py",
+      "skill": "Exploratory Data Analysis",
+      "evidence_category": "Strong evidence",
+      "code_snippet": "def conduct_eda_profile(df):\n    summary = df.describe(include='all').T\n    summary['missing_count'] = df.isnull().sum()\n    summary['missing_pct'] = (df.isnull().sum() / len(df)) * 100\n    numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns\n    correlations = df[numeric_cols].corr()\n    return {'summary': summary, 'correlations': correlations}\n",
+      "ast_signals": {
+        "call_count": 8,
+        "func_def_count": 1,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 7
+      }
+    },
+    {
+      "repository_id": "secure-auth/jwt-identity",
+      "file_path": "auth/tokens.py",
+      "skill": "Authentication",
+      "evidence_category": "Strong evidence",
+      "code_snippet": "from jose import jwt, JWTError\nimport bcrypt\nfrom datetime import datetime, timedelta, timezone\n\nSECRET_KEY = 'prod-secret-signing-key'\nALGORITHM = 'HS256'\n\ndef create_access_token(data: dict, expires_delta: timedelta = timedelta(minutes=30)) -> str:\n    to_encode = data.copy()\n    expire = datetime.now(timezone.utc) + expires_delta\n    to_encode.update({'exp': expire})\n    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)\n\ndef verify_password(plain: str, hashed: str) -> bool:\n    return bcrypt.checkpw(plain.encode('utf-8'), hashed.encode('utf-8'))\n",
+      "ast_signals": {
+        "call_count": 7,
+        "func_def_count": 2,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 14
+      }
+    },
+    {
+      "repository_id": "secure-auth/jwt-identity",
+      "file_path": "auth/handlers.py",
+      "skill": "Error Handling",
+      "evidence_category": "Strong evidence",
+      "code_snippet": "import logging\nlogger = logging.getLogger(__name__)\n\nclass AuthenticationFailedException(Exception):\n    pass\n\ndef safe_token_decode(token: str) -> dict:\n    try:\n        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])\n    except JWTError as err:\n        logger.error('Token validation failed: %s', str(err))\n        raise AuthenticationFailedException('Invalid or expired bearer token') from err\n",
+      "ast_signals": {
+        "call_count": 4,
+        "func_def_count": 1,
+        "class_def_count": 1,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 11
+      }
+    },
+    {
+      "repository_id": "torch-lab/deep-nlp",
+      "file_path": "models/transformer_classifier.py",
+      "skill": "Deep Learning",
+      "evidence_category": "Strong evidence",
+      "code_snippet": "import torch\nimport torch.nn as nn\n\nclass TextClassifier(nn.Module):\n    def __init__(self, vocab_size: int, embed_dim: int, num_classes: int):\n        super().__init__()\n        self.embedding = nn.Embedding(vocab_size, embed_dim)\n        self.encoder = nn.TransformerEncoderLayer(d_model=embed_dim, nhead=8)\n        self.fc = nn.Linear(embed_dim, num_classes)\n\n    def forward(self, x):\n        embedded = self.embedding(x)\n        encoded = self.encoder(embedded)\n        pooled = torch.mean(encoded, dim=1)\n        return self.fc(pooled)\n",
+      "ast_signals": {
+        "call_count": 8,
+        "func_def_count": 2,
+        "class_def_count": 1,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 14
+      }
+    },
+    {
+      "repository_id": "torch-lab/deep-nlp",
+      "file_path": "quick_import.py",
+      "skill": "Deep Learning",
+      "evidence_category": "Limited evidence",
+      "code_snippet": "import torch\n# Check CUDA availability only\nhas_cuda = torch.cuda.is_available()\n",
+      "ast_signals": {
+        "call_count": 1,
+        "func_def_count": 0,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": true,
+        "line_span": 3
+      }
+    },
+    {
+      "repository_id": "stats-lab/ab-testing",
+      "file_path": "experiments/ab_test.py",
+      "skill": "Statistical Analysis",
+      "evidence_category": "Strong evidence",
+      "code_snippet": "from scipy import stats\nimport numpy as np\n\ndef analyze_experiment(control_conv, treatment_conv, alpha=0.05):\n    t_stat, p_val = stats.ttest_ind(control_conv, treatment_conv, equal_var=False)\n    diff = np.mean(treatment_conv) - np.mean(control_conv)\n    is_significant = p_val < alpha\n    return {'t_statistic': float(t_stat), 'p_value': float(p_val), 'diff': float(diff), 'is_significant': bool(is_significant)}\n",
+      "ast_signals": {
+        "call_count": 7,
+        "func_def_count": 1,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 7
+      }
+    },
+    {
+      "repository_id": "stats-lab/ab-testing",
+      "file_path": "experiments/mean_check.py",
+      "skill": "Statistical Analysis",
+      "evidence_category": "Moderate evidence",
+      "code_snippet": "import numpy as np\ndef get_group_mean(values):\n    return float(np.mean(values))\n",
+      "ast_signals": {
+        "call_count": 2,
+        "func_def_count": 1,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 3
+      }
+    },
+    {
+      "repository_id": "enterprise-java/order-gateway",
+      "file_path": "src/main/java/com/corp/OrderService.java",
+      "skill": "Java",
+      "evidence_category": "Strong evidence",
+      "code_snippet": "package com.corp.service;\n\nimport org.springframework.stereotype.Service;\nimport org.springframework.transaction.annotation.Transactional;\nimport java.util.Optional;\n\n@Service\npublic class OrderService {\n    private final OrderRepository orderRepository;\n    public OrderService(OrderRepository orderRepository) {\n        this.orderRepository = orderRepository;\n    }\n    @Transactional\n    public OrderResponse processOrder(OrderRequest request) {\n        Order order = new Order(request.getCustomerId(), request.getItems());\n        return orderRepository.save(order).toResponse();\n    }\n}\n",
+      "ast_signals": {
+        "call_count": 5,
+        "func_def_count": 2,
+        "class_def_count": 1,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 16
+      }
+    },
+    {
+      "repository_id": "enterprise-java/order-gateway",
+      "file_path": "src/main/java/com/corp/Hello.java",
+      "skill": "Java",
+      "evidence_category": "Limited evidence",
+      "code_snippet": "public class Hello {\n    public static void main(String[] args) {\n        System.out.println(\"Hello\");\n    }\n}\n",
+      "ast_signals": {
+        "call_count": 1,
+        "func_def_count": 1,
+        "class_def_count": 1,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": true,
+        "line_span": 5
+      }
+    },
+    {
+      "repository_id": "web-portal/react-dashboard",
+      "file_path": "src/services/apiClient.ts",
+      "skill": "TypeScript",
+      "evidence_category": "Strong evidence",
+      "code_snippet": "export interface ApiResponse<T> {\n  data: T;\n  status: number;\n  message?: string;\n}\n\nexport async function fetchWithAuth<T>(endpoint: string, token: string): Promise<ApiResponse<T>> {\n  const res = await fetch(`/api/v1/${endpoint}`, {\n    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }\n  });\n  if (!res.ok) throw new Error(`HTTP error: ${res.status}`);\n  return await res.json();\n}\n",
+      "ast_signals": {
+        "call_count": 4,
+        "func_def_count": 1,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 12
+      }
+    },
+    {
+      "repository_id": "web-portal/react-dashboard",
+      "file_path": "src/utils/calc.js",
+      "skill": "JavaScript",
+      "evidence_category": "Moderate evidence",
+      "code_snippet": "export function formatCurrency(amount, currency = 'INR') {\n  return new Intl.NumberFormat('en-IN', { style: 'currency', currency }).format(amount);\n}\n",
+      "ast_signals": {
+        "call_count": 2,
+        "func_def_count": 1,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 3
+      }
+    },
+    {
+      "repository_id": "systems-cpp/memory-pool",
+      "file_path": "src/buffer_pool.cpp",
+      "skill": "C++",
+      "evidence_category": "Strong evidence",
+      "code_snippet": "#include <vector>\n#include <memory>\n#include <stdexcept>\n\ntemplate<typename T>\nclass FixedMemoryPool {\nprivate:\n    std::vector<std::unique_ptr<T>> pool_;\n    size_t capacity_;\npublic:\n    explicit FixedMemoryPool(size_t capacity) : capacity_(capacity) {\n        pool_.reserve(capacity);\n    }\n    void acquire(std::unique_ptr<T> item) {\n        if (pool_.size() >= capacity_) throw std::overflow_error(\"Pool full\");\n        pool_.push_back(std::move(item));\n    }\n};\n",
+      "ast_signals": {
+        "call_count": 4,
+        "func_def_count": 2,
+        "class_def_count": 1,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 18
+      }
+    },
+    {
+      "repository_id": "pipeline-eng/orchestrator",
+      "file_path": "dags/monthly_settlement.py",
+      "skill": "Workflow Orchestration",
+      "evidence_category": "Strong evidence",
+      "code_snippet": "from airflow.decorators import dag, task\nfrom datetime import datetime\n\n@dag(schedule='@monthly', start_date=datetime(2025, 1, 1), catchup=False, tags=['finance'])\ndef monthly_settlement_flow():\n    @task\n    def aggregate_ledger():\n        return {'settled': True, 'count': 45000}\n    @task\n    def notify_stakeholders(summary):\n        print(f\"Settlement complete: {summary}\")\n    summary = aggregate_ledger()\n    notify_stakeholders(summary)\n",
+      "ast_signals": {
+        "call_count": 5,
+        "func_def_count": 3,
+        "class_def_count": 0,
+        "test_assert_count": 0,
+        "is_import_only": false,
+        "is_tutorial_syntax": false,
+        "line_span": 14
+      }
+    }
+  ]
+}

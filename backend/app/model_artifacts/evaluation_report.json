@@ -1,0 +1,61 @@
+{
+  "model_version": "1.0.0",
+  "algorithm": "LogisticRegression + FeatureUnion(Tfidf, ASTSignals)",
+  "split_method": "GroupKFold (n_splits=5) grouped by repository_id",
+  "classes": [
+    "Limited evidence",
+    "Moderate evidence",
+    "Strong evidence"
+  ],
+  "sample_count": 35,
+  "repository_count": 14,
+  "baseline_metrics": {
+    "accuracy": 1.0,
+    "macro_f1": 1.0,
+    "precision": 1.0,
+    "recall": 1.0
+  },
+  "ml_metrics": {
+    "accuracy": 0.9714,
+    "macro_f1": 0.9666,
+    "precision": 0.9524,
+    "recall": 0.9848,
+    "f1_improvement_pct": -3.34
+  },
+  "class_breakdown": {
+    "Limited evidence": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 7.0
+    },
+    "Moderate evidence": {
+      "precision": 0.8571428571428571,
+      "recall": 1.0,
+      "f1-score": 0.9230769230769231,
+      "support": 6.0
+    },
+    "Strong evidence": {
+      "precision": 1.0,
+      "recall": 0.9545454545454546,
+      "f1-score": 0.9767441860465116,
+      "support": 22.0
+    },
+    "accuracy": 0.9714285714285714,
+    "macro avg": {
+      "precision": 0.9523809523809524,
+      "recall": 0.9848484848484849,
+      "f1-score": 0.9666070363744783,
+      "support": 35.0
+    },
+    "weighted avg": {
+      "precision": 0.9755102040816326,
+      "recall": 0.9714285714285714,
+      "f1-score": 0.9721952466138511,
+      "support": 35.0
+    }
+  },
+  "artifacts": {
+    "model_path": "backend/app/model_artifacts\\skill_evidence_classifier.joblib"
+  }
+}

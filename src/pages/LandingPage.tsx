@@ -60,7 +60,7 @@ export const LandingPage: React.FC = () => {
                 letterSpacing: '-0.025em'
               }}
             >
-              Your next chapter starts here.
+              Your future begins with NEXORA.
             </h1>
 
             <p

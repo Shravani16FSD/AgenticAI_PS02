@@ -29,23 +29,82 @@ interface AppContextType {
   totalTasksCount: number;
   overallProgressPercent: number;
   activeCareer: CareerPath | undefined;
+  activeUserId: string;
+  isLoggedIn: boolean;
+  availableUsers: AvailableUser[];
+  loginUser: (userId: string) => Promise<boolean>;
+  logoutUser: () => Promise<void>;
 }
 
+export interface AvailableUser {
+  id: string;
+  name: string;
+  target_career_id?: string;
+  study_status?: string;
+  primary_goal?: string;
+  interests?: string[];
+  role?: string;
+  avatarInitials?: string;
+}
+
+export const SEEDED_USERS: AvailableUser[] = [
+  {
+    id: 'default_user',
+    name: 'Alex Morgan',
+    target_career_id: 'ai-product-engineer',
+    study_status: 'Third-year CS & Machine Learning Honors Student',
+    primary_goal: 'Secure a Summer 2027 AI Product & Stream Processing Engineering Internship',
+    interests: ['Distributed Systems', 'Data Pipelines', 'PyTorch & MLOps', 'Stream Processing', 'Vector Search'],
+    role: 'AI Product & Data Pipeline Engineer',
+    avatarInitials: 'AM'
+  },
+  {
+    id: 'user_jordan_chen',
+    name: 'Jordan Chen',
+    target_career_id: 'product-designer',
+    study_status: 'Design Systems Architect & Accessibility Lead',
+    primary_goal: 'Scale tokenized cross-platform design systems and achieve 100% WCAG 2.2 AAA audit compliance',
+    interests: ['Design Tokens', 'WCAG 2.2 AAA Accessibility', 'Component Systems', 'Micro-interactions', 'Headless UI'],
+    role: 'Lead Design Systems & Accessibility Architect',
+    avatarInitials: 'JC'
+  },
+  {
+    id: 'user_priya_sharma',
+    name: 'Priya Sharma',
+    target_career_id: 'data-systems-analyst',
+    study_status: 'Analytics Engineering & Financial Marts Specialist',
+    primary_goal: 'Architect reliable dimensional models and enterprise dbt transformation pipelines',
+    interests: ['dbt Core & Modeling', 'Financial Data Marts', 'Snowflake Observability', 'Dimensional Schemas', 'BI Metrics'],
+    role: 'Staff Analytics Engineer & Financial Marts Lead',
+    avatarInitials: 'PS'
+  },
+  {
+    id: 'user_marcus_vance',
+    name: 'Marcus Vance',
+    target_career_id: 'ai-product-engineer',
+    study_status: 'High-Performance Graphics & Zero-Trust AppSec Specialist',
+    primary_goal: 'Engineer ultra-low-latency WebGL canvas rendering engines and hardened sandbox harnesses',
+    interests: ['WebGL & WebGPU', 'Virtualized Canvas Grids', 'Memory Safety & WASM', 'Zero-Trust Security', 'Low-Level Graphics'],
+    role: 'Principal Systems & Graphics Engineer',
+    avatarInitials: 'MV'
+  }
+];
+
 const STORAGE_KEYS = {
-  PROFILE: 'chapter_user_profile',
-  SAVED_CAREERS: 'chapter_saved_careers',
-  ROADMAP: 'chapter_roadmap_tasks',
-  SKILLS: 'chapter_skills',
-  CHAT: 'chapter_chat_history',
+  PROFILE: 'nexora_user_profile',
+  SAVED_CAREERS: 'nexora_saved_careers',
+  ROADMAP: 'nexora_roadmap_tasks',
+  SKILLS: 'nexora_skills',
+  CHAT: 'nexora_chat_history',
 };
 
 const DEFAULT_PROFILE: UserProfile = {
   name: 'Alex Morgan',
-  studyStatus: 'Third-year CS & HCI Student',
+  studyStatus: 'Third-year CS & Machine Learning Honors Student',
   targetCareerId: 'ai-product-engineer',
-  interests: ['Human-Centered AI', 'Web Architecture', 'Design Systems', 'Interface Ergonomics'],
-  currentSkills: ['TypeScript', 'React', 'Basic Python', 'Semantic HTML'],
-  primaryGoal: 'Secure a Summer 2027 AI Product Engineering Internship',
+  interests: ['Distributed Systems', 'Data Pipelines', 'PyTorch & MLOps', 'Stream Processing', 'Vector Search'],
+  currentSkills: ['Python', 'Pandas', 'FastAPI', 'PyTorch', 'Kafka Basics'],
+  primaryGoal: 'Secure a Summer 2027 AI Product & Stream Processing Engineering Internship',
   weeklyHours: 8,
   onboardingCompleted: true,
 };
@@ -53,7 +112,7 @@ const DEFAULT_PROFILE: UserProfile = {
 const INITIAL_GREETING_MESSAGE: ChatMessage = {
   id: 'msg-welcome',
   sender: 'assistant',
-  text: `Hello Alex. I am your career mentor.
+  text: `Hello. I am NEXORA, your career mentor.
 
 Your career is a journey, and you do not need to figure everything out today. Whether you want to reflect on what path fits your strengths, structure your weekly learning, or prepare for internship applications, I am here to work through it with you step-by-step.
 
@@ -127,14 +186,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // 6. Toasts (in-memory)
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  // Load remote database state on startup if available
-  useEffect(() => {
-    let isMounted = true;
-    const fetchRemoteData = async () => {
-      const isLive = await apiClient.checkHealth();
-      if (!isLive || !isMounted) return;
+  // 7. Active User & Multi-User Support
+  const [activeUserId, setActiveUserId] = useState<string>(() => {
+    return apiClient.getActiveUserId() || 'default_user';
+  });
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    return Boolean(apiClient.getActiveUserId() || localStorage.getItem('chapter_session_user') || localStorage.getItem('nexora_session_user'));
+  });
+  const [availableUsers, setAvailableUsers] = useState<AvailableUser[]>(SEEDED_USERS);
 
-      const [remoteProfile, remoteSaved, remoteRoadmap, remoteSkills, remoteChat] = await Promise.all([
+  const loadUserDataForSession = async () => {
+    const isLive = await apiClient.checkHealth();
+    if (!isLive) return;
+
+    try {
+      const [usersList, remoteProfile, remoteSaved, remoteRoadmap, remoteSkills, remoteChat] = await Promise.all([
+        apiClient.getAvailableUsers(),
         apiClient.getProfile(),
         apiClient.getSavedCareerIds(),
         apiClient.getRoadmap(),
@@ -142,18 +209,112 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         apiClient.getChatHistory()
       ]);
 
-      if (!isMounted) return;
-      if (remoteProfile) setProfile(remoteProfile);
-      if (remoteSaved) setSavedCareerIds(remoteSaved);
-      if (remoteRoadmap && remoteRoadmap.length > 0) setRoadmapTasks(remoteRoadmap);
-      if (remoteSkills && remoteSkills.length > 0) setSkills(remoteSkills);
-      if (remoteChat && remoteChat.length > 0) setChatMessages(remoteChat);
-    };
+      if (usersList && usersList.length > 0) {
+        setAvailableUsers(
+          usersList.map(u => {
+            const seed = SEEDED_USERS.find(s => s.id === u.id);
+            return {
+              ...u,
+              interests: seed?.interests || ['Technology', 'Software Engineering'],
+              role: seed?.role || u.study_status,
+              avatarInitials: seed?.avatarInitials || u.name.slice(0, 2).toUpperCase()
+            };
+          })
+        );
+      }
+      if (remoteProfile) {
+        setProfile(remoteProfile);
+      }
+      if (remoteSaved) {
+        setSavedCareerIds(remoteSaved);
+      }
+      if (remoteRoadmap && remoteRoadmap.length > 0) {
+        setRoadmapTasks(remoteRoadmap);
+      }
+      if (remoteSkills && remoteSkills.length > 0) {
+        setSkills(remoteSkills);
+      }
+      if (remoteChat && remoteChat.length > 0) {
+        setChatMessages(remoteChat);
+      }
+    } catch (e) {
+      console.warn('Error loading remote user session data', e);
+    }
+  };
 
-    fetchRemoteData();
-    return () => {
-      isMounted = false;
-    };
+  const loginUser = async (userId: string): Promise<boolean> => {
+    const normalizedId = userId.toLowerCase() === 'jordan' || userId.toLowerCase() === 'jordan_chen' ? 'user_jordan_chen'
+      : userId.toLowerCase() === 'priya' || userId.toLowerCase() === 'priya_sharma' ? 'user_priya_sharma'
+      : userId.toLowerCase() === 'marcus' || userId.toLowerCase() === 'marcus_vance' ? 'user_marcus_vance'
+      : userId.toLowerCase() === 'alex' || userId.toLowerCase() === 'alex_morgan' ? 'default_user'
+      : userId;
+
+    const isLive = await apiClient.checkHealth();
+    if (isLive) {
+      await apiClient.login(normalizedId);
+    } else {
+      apiClient.setSession(`token_${normalizedId}`, normalizedId);
+    }
+
+    setActiveUserId(normalizedId);
+    setIsLoggedIn(true);
+
+    const seed = SEEDED_USERS.find(s => s.id === normalizedId);
+    if (seed) {
+      setProfile(prev => ({
+        ...prev,
+        name: seed.name,
+        studyStatus: seed.study_status || prev.studyStatus,
+        targetCareerId: seed.target_career_id || prev.targetCareerId,
+        primaryGoal: seed.primary_goal || prev.primaryGoal,
+        interests: seed.interests || prev.interests,
+        currentSkills: seed.id === 'user_jordan_chen' ? ['Design Tokens', 'WCAG 2.2 AAA', 'TypeScript', 'Component Systems']
+          : seed.id === 'user_priya_sharma' ? ['dbt Core', 'Snowflake', 'SQL Transformations', 'Dimensional Modeling']
+          : seed.id === 'user_marcus_vance' ? ['WebGL', 'WebGPU', 'Canvas Virtualization', 'AppSec Sandboxing']
+          : ['Python', 'Pandas', 'FastAPI', 'PyTorch']
+      }));
+    }
+
+    if (isLive) {
+      await loadUserDataForSession();
+    }
+
+    addToast({
+      type: 'success',
+      title: 'Welcome to NEXORA',
+      message: `Signed in as ${seed?.name || normalizedId}. Dashboard personalized.`
+    });
+    return true;
+  };
+
+  const logoutUser = async (): Promise<void> => {
+    try {
+      const isLive = await apiClient.checkHealth();
+      if (isLive) {
+        await apiClient.logout();
+      } else {
+        apiClient.setSession(null, null);
+      }
+    } catch {
+      apiClient.setSession(null, null);
+    }
+
+    setIsLoggedIn(false);
+    setActiveUserId('');
+    try {
+      localStorage.removeItem(STORAGE_KEYS.PROFILE);
+    } catch {}
+
+    addToast({
+      type: 'info',
+      title: 'Logged Out',
+      message: 'You have been signed out of your NEXORA account.'
+    });
+  };
+
+  // Load remote database state on startup if available
+  useEffect(() => {
+    loadUserDataForSession();
   }, []);
 
   // Persistent storage synchronizations
@@ -396,7 +557,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         completedTasksCount,
         totalTasksCount,
         overallProgressPercent,
-        activeCareer
+        activeCareer,
+        activeUserId,
+        isLoggedIn,
+        availableUsers,
+        loginUser,
+        logoutUser
       }}
     >
       {children}

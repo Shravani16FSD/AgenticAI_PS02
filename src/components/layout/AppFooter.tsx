@@ -49,10 +49,10 @@ export const AppFooter: React.FC = () => {
                   fontSize: '0.875rem'
                 }}
               >
-                C
+                N
               </div>
               <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '1.125rem' }}>
-                Chapter
+                NEXORA
               </span>
             </div>
             <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
@@ -77,10 +77,11 @@ export const AppFooter: React.FC = () => {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
               <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text)' }}>
-                Account & Help
+                Account & Access
               </span>
+              <Link to="/login" style={{ fontSize: 'var(--text-sm)', color: 'var(--color-burgundy)', fontWeight: 600, textDecoration: 'none' }}>Sign In / Access Portal</Link>
               <Link to="/onboarding" style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)', textDecoration: 'none' }}>Onboarding Guide</Link>
-              <Link to="/profile" style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)', textDecoration: 'none' }}>Profile & Preferences</Link>
+              <Link to="/profile" style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)', textDecoration: 'none' }}>Profile & Settings</Link>
             </div>
           </div>
         </div>
@@ -99,7 +100,7 @@ export const AppFooter: React.FC = () => {
             color: 'var(--color-text-muted)'
           }}
         >
-          <span>© 2026 Chapter. Designed with editorial warmth and cream & burgundy precision.</span>
+          <span>© 2026 NEXORA. Designed with editorial warmth and cream & burgundy precision.</span>
           <span>Targeting WCAG 2.2 AA accessibility standards.</span>
         </div>
       </div>

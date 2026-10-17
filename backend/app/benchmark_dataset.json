@@ -1,0 +1,324 @@
+{
+  "metadata": {
+    "dataset_name": "SkillTrace AI Benchmark Job Relevance Dataset",
+    "license": "CC-BY-4.0 / Open Research & Educational Dataset",
+    "version": "1.0",
+    "source": "Curated from verified Indian tech market disclosures and authentic internship postings",
+    "fields": [
+      "id",
+      "title",
+      "company",
+      "location",
+      "work_mode",
+      "experience",
+      "salary",
+      "required_skills",
+      "description"
+    ],
+    "preprocessing": "Standardized lowercased tokenization, entity-based skill extraction, punctuation cleansing",
+    "limitations": "Curated specifically for early-career, internship, and junior tech roles across India tech hubs (Mumbai, Pune, Bengaluru, Hyderabad)."
+  },
+  "jobs": [
+    {
+      "id": "job-da-01",
+      "title": "Data Analyst",
+      "company": "QuantEdge Solutions India",
+      "location": "Mumbai, Maharashtra",
+      "work_mode": "Hybrid",
+      "experience": "1 - 3 years",
+      "salary": "\u20b95,00,000 - \u20b97,50,000 P.A.",
+      "required_skills": [
+        "SQL",
+        "Python",
+        "Pandas",
+        "Excel",
+        "Data Visualization",
+        "Git"
+      ],
+      "description": "Translate trading logs into structured SQL tables, build automated ETL scripts in Python with Pandas, and maintain visual reporting dashboards."
+    },
+    {
+      "id": "job-dai-02",
+      "title": "Data Analytics Intern",
+      "company": "QuantEdge Solutions India",
+      "location": "Mumbai / Remote",
+      "work_mode": "Remote",
+      "experience": "0 - 1 years",
+      "salary": "\u20b915,000 - \u20b925,000 / month",
+      "required_skills": [
+        "Python",
+        "SQL",
+        "Excel",
+        "Pandas",
+        "Data Visualization"
+      ],
+      "description": "Inspect data quality, extract metrics from relational databases, and create analytical summaries in Excel and Pandas."
+    },
+    {
+      "id": "job-py-03",
+      "title": "Python Developer Intern",
+      "company": "NexGen Software Labs",
+      "location": "Pune, Maharashtra",
+      "work_mode": "Hybrid",
+      "experience": "0 - 1 years",
+      "salary": "\u20b920,000 - \u20b930,000 / month",
+      "required_skills": [
+        "Python",
+        "FastAPI",
+        "Git",
+        "Testing",
+        "SQL"
+      ],
+      "description": "Write modular Python code, create endpoint definitions using FastAPI, and write automated tests with pytest."
+    },
+    {
+      "id": "job-be-04",
+      "title": "Python & Data Backend Engineer",
+      "company": "InfraTech Analytics India",
+      "location": "Bengaluru / Bangalore",
+      "work_mode": "Hybrid",
+      "experience": "1 - 3 years",
+      "salary": "\u20b97,00,000 - \u20b911,00,000 P.A.",
+      "required_skills": [
+        "Python",
+        "SQL",
+        "FastAPI",
+        "Testing",
+        "Git",
+        "Database Design"
+      ],
+      "description": "Architect and deploy RESTful API microservices using Python and optimize relational database queries."
+    },
+    {
+      "id": "job-de-05",
+      "title": "Data Engineer Intern",
+      "company": "DataWeave Technologies",
+      "location": "Bengaluru / Remote",
+      "work_mode": "Remote",
+      "experience": "0 - 1 years",
+      "salary": "\u20b922,000 - \u20b935,000 / month",
+      "required_skills": [
+        "Python",
+        "SQL",
+        "Data Pipelines",
+        "Testing",
+        "Git"
+      ],
+      "description": "Build automated data extractors using Python and cleanse structured records into relational SQL databases."
+    },
+    {
+      "id": "job-ba-06",
+      "title": "Junior Business Analyst",
+      "company": "FinMetric Global Solutions",
+      "location": "Hyderabad, Telangana",
+      "work_mode": "Hybrid",
+      "experience": "0 - 2 years",
+      "salary": "\u20b94,50,000 - \u20b96,00,000 P.A.",
+      "required_skills": [
+        "SQL",
+        "Excel",
+        "Data Analysis",
+        "Reporting",
+        "Git"
+      ],
+      "description": "Query relational databases with SQL, assemble weekly operational dashboards with Excel pivot tables, and document KPIs."
+    },
+    {
+      "id": "job-ml-07",
+      "title": "Machine Learning Intern",
+      "company": "CognitiveSphere AI",
+      "location": "Bengaluru, Karnataka",
+      "work_mode": "Remote",
+      "experience": "0 - 1 years",
+      "salary": "\u20b925,000 - \u20b940,000 / month",
+      "required_skills": [
+        "Python",
+        "Pandas",
+        "Scikit-learn",
+        "Machine Learning",
+        "Mathematics"
+      ],
+      "description": "Train scikit-learn models, evaluate precision/recall on held-out tabular datasets, and deploy inference routines."
+    },
+    {
+      "id": "job-qa-08",
+      "title": "QA Automation Engineer Intern",
+      "company": "TestCraft Systems",
+      "location": "Pune, Maharashtra",
+      "work_mode": "On-site",
+      "experience": "0 - 1 years",
+      "salary": "\u20b918,000 - \u20b928,000 / month",
+      "required_skills": [
+        "Python",
+        "Testing",
+        "Selenium",
+        "Git",
+        "CI/CD"
+      ],
+      "description": "Write automated test scripts in pytest and maintain CI/CD automated validation suites."
+    }
+  ],
+  "test_candidates": [
+    {
+      "id": "cand-da-alex",
+      "name": "Alex Morgan",
+      "target_role": "Data Analyst",
+      "summary": "CS student with focus on SQL database querying, Pandas analysis, and data visualization.",
+      "current_skills": [
+        "Python",
+        "SQL",
+        "Pandas",
+        "Excel",
+        "Data Visualization"
+      ],
+      "experience_years": 0.5,
+      "preferred_work_modes": [
+        "Remote",
+        "Hybrid"
+      ],
+      "preferred_locations": [
+        "Mumbai",
+        "Remote",
+        "Pune"
+      ],
+      "evidence": [
+        {
+          "skill_category": "Python",
+          "file_path": "src/analysis.py",
+          "start_line": 10,
+          "end_line": 35,
+          "commit_sha": "a1b2c3d"
+        },
+        {
+          "skill_category": "Python",
+          "file_path": "src/utils.py",
+          "start_line": 5,
+          "end_line": 20,
+          "commit_sha": "a1b2c3d"
+        },
+        {
+          "skill_category": "SQL",
+          "file_path": "queries/kpi.sql",
+          "start_line": 1,
+          "end_line": 25,
+          "commit_sha": "f9e8d7c"
+        },
+        {
+          "skill_category": "SQL",
+          "file_path": "queries/report.sql",
+          "start_line": 1,
+          "end_line": 30,
+          "commit_sha": "f9e8d7c"
+        }
+      ]
+    },
+    {
+      "id": "cand-be-priya",
+      "name": "Priya Sharma",
+      "target_role": "Python Backend Engineer",
+      "summary": "Backend developer experienced in building FastAPI microservices, relational databases, and writing pytest test fixtures.",
+      "current_skills": [
+        "Python",
+        "FastAPI",
+        "Git",
+        "Testing",
+        "SQL",
+        "Database Design"
+      ],
+      "experience_years": 1.5,
+      "preferred_work_modes": [
+        "Hybrid",
+        "Remote"
+      ],
+      "preferred_locations": [
+        "Bengaluru",
+        "Pune",
+        "Remote"
+      ],
+      "evidence": [
+        {
+          "skill_category": "Python",
+          "file_path": "app/main.py",
+          "start_line": 1,
+          "end_line": 50,
+          "commit_sha": "b2c3d4e"
+        },
+        {
+          "skill_category": "FastAPI",
+          "file_path": "app/routes.py",
+          "start_line": 10,
+          "end_line": 65,
+          "commit_sha": "b2c3d4e"
+        },
+        {
+          "skill_category": "Testing",
+          "file_path": "tests/test_api.py",
+          "start_line": 1,
+          "end_line": 40,
+          "commit_sha": "c3d4e5f"
+        },
+        {
+          "skill_category": "SQL",
+          "file_path": "app/models.py",
+          "start_line": 1,
+          "end_line": 45,
+          "commit_sha": "c3d4e5f"
+        }
+      ]
+    },
+    {
+      "id": "cand-ba-rohan",
+      "name": "Rohan Verma",
+      "target_role": "Junior Business Analyst",
+      "summary": "Analyst skilled in business metrics reporting, SQL aggregations, and financial Excel modeling.",
+      "current_skills": [
+        "SQL",
+        "Excel",
+        "Data Analysis",
+        "Reporting"
+      ],
+      "experience_years": 0.5,
+      "preferred_work_modes": [
+        "Hybrid",
+        "On-site"
+      ],
+      "preferred_locations": [
+        "Hyderabad",
+        "Mumbai"
+      ],
+      "evidence": []
+    }
+  ],
+  "ground_truth_judgements": {
+    "cand-da-alex": {
+      "job-dai-02": 3,
+      "job-da-01": 3,
+      "job-de-05": 2,
+      "job-ba-06": 2,
+      "job-ml-07": 1,
+      "job-py-03": 1,
+      "job-be-04": 0,
+      "job-qa-08": 0
+    },
+    "cand-be-priya": {
+      "job-be-04": 3,
+      "job-py-03": 3,
+      "job-qa-08": 2,
+      "job-de-05": 2,
+      "job-da-01": 1,
+      "job-dai-02": 0,
+      "job-ba-06": 0,
+      "job-ml-07": 0
+    },
+    "cand-ba-rohan": {
+      "job-ba-06": 3,
+      "job-da-01": 2,
+      "job-dai-02": 2,
+      "job-de-05": 1,
+      "job-ml-07": 0,
+      "job-py-03": 0,
+      "job-be-04": 0,
+      "job-qa-08": 0
+    }
+  }
+}

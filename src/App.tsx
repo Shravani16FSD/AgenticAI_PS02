@@ -12,6 +12,7 @@ import { ExplorePage } from './pages/ExplorePage';
 import { RoadmapPage } from './pages/RoadmapPage';
 import { SkillsPage } from './pages/SkillsPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { AuthPage } from './pages/AuthPage';
 import { PageContainer } from './components/ui/Typography';
 import { PrimaryButton } from './components/ui/Buttons';
 
@@ -67,6 +68,8 @@ export const App: React.FC = () => {
               <Route path="/roadmap" element={<RoadmapPage />} />
               <Route path="/skills" element={<SkillsPage />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/login" element={<AuthPage />} />
+              <Route path="/auth" element={<AuthPage />} />
               {/* Backwards compatibility aliases */}
               <Route path="/app" element={<Navigate to="/dashboard" replace />} />
               <Route path="/chat" element={<Navigate to="/coach" replace />} />

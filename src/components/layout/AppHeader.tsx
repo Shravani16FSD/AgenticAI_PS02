@@ -71,7 +71,7 @@ export const AppHeader: React.FC = () => {
               textDecoration: 'none',
               color: 'var(--color-text)'
             }}
-            aria-label="Chapter — Home"
+            aria-label="NEXORA — Home"
           >
             <div
               style={{
@@ -88,7 +88,7 @@ export const AppHeader: React.FC = () => {
                 fontSize: '1.15rem'
               }}
             >
-              C
+              N
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <span
@@ -100,7 +100,7 @@ export const AppHeader: React.FC = () => {
                   lineHeight: 1
                 }}
               >
-                Chapter
+                NEXORA
               </span>
               <span
                 style={{
@@ -175,6 +175,28 @@ export const AppHeader: React.FC = () => {
               gap: 'var(--space-3)'
             }}
           >
+            <Link
+              to="/login"
+              aria-label="Sign in or switch account dashboard"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                textDecoration: 'none',
+                padding: '0.375rem 0.625rem',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--color-burgundy)',
+                backgroundColor: 'var(--color-burgundy-soft)',
+                color: 'var(--color-burgundy)',
+                fontSize: 'var(--text-xs)',
+                fontWeight: 600,
+                transition: 'background-color var(--transition-fast)'
+              }}
+              className="signin-header-link"
+            >
+              <span>Sign In</span>
+            </Link>
+
             <Link
               to="/profile"
               aria-label="Profile and preferences"
